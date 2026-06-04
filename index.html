@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NFT Tree — Active User Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #f5f7fa;
+  --surface:   #ffffff;
+  --surface2:  #f0f3f8;
+  --border:    #e2e8f0;
+  --border2:   #cbd5e1;
+  --text:      #1a2332;
+  --text2:     #64748b;
+  --text3:     #94a3b8;
+  --green:     #059669;
+  --green-bg:  #ecfdf5;
+  --green-bd:  #a7f3d0;
+  --blue:      #2563eb;
+  --blue-bg:   #eff6ff;
+  --blue-bd:   #bfdbfe;
+  --amber:     #d97706;
+  --amber-bg:  #fffbeb;
+  --red:       #dc2626;
+  --red-bg:    #fef2f2;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow:    0 4px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04);
+  --radius:    12px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+/* subtle dot pattern bg */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: radial-gradient(circle, #cbd5e1 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.45;
+  pointer-events: none; z-index: 0;
+}
+
+.wrap {
+  position: relative; z-index: 1;
+  max-width: 960px; margin: 0 auto;
+  padding: 40px 20px 80px;
+}
+
+/* ── Header ── */
+.header { margin-bottom: 36px; }
+.header-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 16px;
+}
+.logo-group { display: flex; align-items: center; gap: 14px; }
+.logo-icon {
+  width: 44px; height: 44px;
+  background: linear-gradient(135deg, #059669, #10b981);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; box-shadow: 0 4px 12px rgba(5,150,105,0.25);
+}
+.logo-text h1 { font-size: 20px; font-weight: 600; color: var(--text); letter-spacing: -0.3px; }
+.logo-text p  { font-size: 12px; color: var(--text3); margin-top: 1px; }
+.network-badge {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px; padding: 6px 14px;
+  font-size: 12px; color: var(--text2);
+  box-shadow: var(--shadow-sm);
+}
+.network-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 2px var(--green-bg);
+}
+
+/* ── Card ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 16px;
+}
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+}
+.card-title {
+  font-size: 13px; font-weight: 600;
+  color: var(--text2); letter-spacing: 0.5px; text-transform: uppercase;
+}
+.card-body { padding: 20px; }
+
+/* ── Config grid ── */
+.cfg-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media(max-width:580px){ .cfg-grid { grid-template-columns: 1fr; } }
+.cfg-full { grid-column: 1 / -1; }
+
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label {
+  font-size: 11px; font-weight: 600;
+  color: var(--text2); letter-spacing: 0.5px; text-transform: uppercase;
+}
+.field input {
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 12px; padding: 9px 12px;
+  outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+}
+.field input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+  background: var(--surface);
+}
+.field input[readonly] { color: var(--text2); cursor: default; }
+.field input[readonly]:focus { border-color: var(--border); box-shadow: none; }
+
+/* ── Run Button ── */
+.btn-run {
+  width: 100%; padding: 13px 24px;
+  background: linear-gradient(135deg, #059669, #10b981);
+  border: none; border-radius: 9px;
+  color: #fff; font-family: 'DM Sans', sans-serif;
+  font-size: 15px; font-weight: 600; letter-spacing: 0.3px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(5,150,105,0.3);
+  transition: all 0.2s; position: relative; overflow: hidden;
+}
+.btn-run:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(5,150,105,0.35); }
+.btn-run:active { transform: translateY(0); }
+.btn-run:disabled {
+  background: var(--border2); color: var(--text3);
+  box-shadow: none; cursor: not-allowed; transform: none;
+}
+
+/* ── Stats ── */
+.stats {
+  display: grid; grid-template-columns: repeat(4,1fr); gap: 12px;
+  margin-bottom: 16px; display: none;
+}
+@media(max-width:580px){ .stats { grid-template-columns: repeat(2,1fr); } }
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 16px;
+  box-shadow: var(--shadow-sm);
+}
+.stat-val {
+  font-family: 'DM Mono', monospace;
+  font-size: 28px; font-weight: 500; color: var(--text);
+  letter-spacing: -1px; line-height: 1;
+}
+.stat-lbl {
+  font-size: 11px; color: var(--text3);
+  margin-top: 5px; font-weight: 500; letter-spacing: 0.3px;
+}
+.stat-card.green .stat-val { color: var(--green); }
+.stat-card.blue  .stat-val { color: var(--blue); }
+.stat-card.amber .stat-val { color: var(--amber); }
+
+/* ── Progress ── */
+.progress-card { display: none; }
+.progress-top {
+  display: flex; justify-content: space-between;
+  font-size: 12px; color: var(--text2); margin-bottom: 8px;
+}
+.progress-track {
+  height: 6px; background: var(--surface2);
+  border-radius: 3px; overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #059669, #34d399);
+  border-radius: 3px; transition: width 0.4s ease;
+}
+
+/* ── Log ── */
+.log-card { display: none; }
+.log-body {
+  padding: 14px 16px;
+  font-family: 'DM Mono', monospace; font-size: 11.5px;
+  max-height: 200px; overflow-y: auto; line-height: 2;
+}
+.log-line         { color: var(--text2); }
+.log-line.ok      { color: var(--green); }
+.log-line.warn    { color: var(--amber); }
+.log-line.err     { color: var(--red); }
+
+/* ── Table ── */
+.table-card { display: none; }
+.search-row { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.search-row input {
+  width: 100%; padding: 8px 12px;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 8px; outline: none;
+  font-family: 'DM Sans', sans-serif; font-size: 13px;
+  color: var(--text); transition: border-color 0.15s;
+}
+.search-row input:focus { border-color: var(--blue); background: var(--surface); }
+.search-row input::placeholder { color: var(--text3); }
+
+.export-btns { display: flex; gap: 8px; }
+.btn-sm {
+  padding: 6px 14px;
+  border-radius: 7px; font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s; font-family: 'DM Sans', sans-serif;
+}
+.btn-outline {
+  background: transparent; border: 1.5px solid var(--border2);
+  color: var(--text2);
+}
+.btn-outline:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); }
+.btn-primary {
+  background: var(--green); border: none; color: #fff;
+  box-shadow: 0 2px 6px rgba(5,150,105,0.25);
+}
+.btn-primary:hover { background: #047857; }
+
+table { width: 100%; border-collapse: collapse; }
+thead tr { background: var(--surface2); }
+th {
+  padding: 10px 16px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.5px;
+  color: var(--text2); text-transform: uppercase;
+  text-align: left; border-bottom: 1px solid var(--border);
+  cursor: pointer; user-select: none; white-space: nowrap;
+}
+th:hover { color: var(--blue); }
+td {
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px; vertical-align: middle;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--surface2); }
+
+.nft-pill {
+  display: inline-block;
+  background: var(--green-bg); border: 1px solid var(--green-bd);
+  color: var(--green); border-radius: 6px;
+  font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500;
+  padding: 3px 10px;
+}
+.wallet-mono {
+  font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text2);
+}
+.wallet-short { display: none; }
+@media(max-width:700px){
+  .wallet-full  { display: none; }
+  .wallet-short { display: inline; }
+}
+.link-icon {
+  color: var(--blue); text-decoration: none; font-size: 13px;
+  opacity: 0.7; transition: opacity 0.15s;
+}
+.link-icon:hover { opacity: 1; }
+.btn-copy {
+  background: transparent; border: 1.5px solid var(--border);
+  border-radius: 6px; padding: 4px 10px;
+  font-size: 11px; font-family: 'DM Sans', sans-serif;
+  color: var(--text3); cursor: pointer; transition: all 0.15s;
+}
+.btn-copy:hover { border-color: var(--blue); color: var(--blue); }
+
+/* pagination */
+.pg-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 16px; border-top: 1px solid var(--border);
+  flex-wrap: wrap; gap: 8px;
+}
+.pg-info { font-size: 12px; color: var(--text3); }
+.pg-btns { display: flex; gap: 4px; }
+.pg-btn {
+  min-width: 32px; height: 32px; padding: 0 8px;
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 7px; color: var(--text2);
+  font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s;
+}
+.pg-btn:hover, .pg-btn.active {
+  border-color: var(--green); color: var(--green); background: var(--green-bg);
+}
+.pg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* error */
+.error-box {
+  background: var(--red-bg); border: 1px solid #fecaca;
+  border-radius: 9px; padding: 12px 16px;
+  color: var(--red); font-size: 13px; margin-bottom: 14px; display: none;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: #fff; border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle; margin-right: 8px;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-inner">
+      <div class="logo-group">
+        <div class="logo-icon">🌳</div>
+        <div class="logo-text">
+          <h1>NFT Tree Lottery</h1>
+          <p>Active User Scanner — BSC Mainnet</p>
+        </div>
+      </div>
+      <div class="network-badge">
+        <span class="network-dot"></span>
+        BSC Mainnet · Chain 56
+      </div>
+    </div>
+  </div>
+
+  <!-- Config card -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Configuration</span>
+    </div>
+    <div class="card-body">
+      <div class="cfg-grid">
+        <div class="field cfg-full">
+          <div style="background:var(--green-bg);border:1px solid var(--green-bd);border-radius:8px;padding:11px 14px;font-size:13px;color:var(--green);font-weight:500;">
+            ✓ No API key needed — reads directly from BSC blockchain
+          </div>
+        </div>
+        <div class="field">
+          <label>Admin Wallet (receives GRBE)</label>
+          <input type="text" id="adminWallet" value="0x4D031E922792B46C9ddfDa923c246656CAC317cA" readonly />
+        </div>
+        <div class="field">
+          <label>GRBE Token Contract</label>
+          <input type="text" id="grbeContract" value="0x5Ca4e7294B14EA5745EE2A688990e0cb68503219" readonly />
+        </div>
+        <div class="field">
+          <label>NFT Tree Contract</label>
+          <input type="text" id="nftContract" value="0x0D56354B247a6e1b0b0190476198E95Ad13d77a4" readonly />
+        </div>
+        <div class="field">
+          <label>Scan Range (GRBE transfers)</label>
+          <select id="scanRange" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:9px 12px;outline:none;width:100%;" onchange="toggleCustomBlock()">
+            <option value="100000">Last ~4 days (100K blocks)</option>
+            <option value="300000">Last ~1 month (300K blocks)</option>
+            <option value="900000">Last ~3 months (900K blocks)</option>
+            <option value="11520000" selected>Last ~400 days (11.5M blocks)</option>
+            <option value="custom">Custom start block</option>
+          </select>
+        </div>
+        <div class="field" id="customBlockField" style="display:none">
+          <label>Start from block number</label>
+          <input type="number" id="customBlock" placeholder="e.g. 101900000" />
+        </div>
+        <div class="field">
+          <label>Rows per page</label>
+          <input type="number" id="pageSize" value="50" min="10" max="200" />
+        </div>
+        <div class="cfg-full">
+          <button class="btn-run" id="btnRun" onclick="runScan()">
+            ▶ &nbsp; Start Scan
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-box" id="errorBox"></div>
+
+  <!-- Progress -->
+  <div class="card progress-card" id="progressCard">
+    <div class="card-body">
+      <div class="progress-top">
+        <span id="progressLabel">Starting...</span>
+        <span id="progressPct" style="font-family:'DM Mono',monospace;font-weight:500">0%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="card log-card" id="logCard">
+    <div class="card-header">
+      <span class="card-title">Activity Log</span>
+    </div>
+    <div class="log-body" id="logBody"></div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats" id="statsRow">
+    <div class="stat-card">
+      <div class="stat-val" id="s1">0</div>
+      <div class="stat-lbl">Wallets sent GRBE</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-val" id="s2">0</div>
+      <div class="stat-lbl">Wallets with NFT</div>
+    </div>
+    <div class="stat-card amber">
+      <div class="stat-val" id="s3">0</div>
+      <div class="stat-lbl">Total NFT IDs</div>
+    </div>
+    <div class="stat-card blue">
+      <div class="stat-val" id="s4">0</div>
+      <div class="stat-lbl">Lottery Tickets</div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="card table-card" id="tableCard">
+    <div class="card-header">
+      <span class="card-title">Lottery Entries</span>
+      <div class="export-btns">
+        <button class="btn-sm btn-outline" onclick="exportCSV()">↓ Export CSV</button>
+        <button class="btn-sm btn-primary" onclick="copyForLottery()">⧉ Copy NFT IDs</button>
+      </div>
+    </div>
+    <div class="search-row">
+      <input type="text" id="searchInput" placeholder="Search by NFT ID or wallet address..." oninput="filterTable()" />
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:48px">#</th>
+            <th onclick="sortTable('nftId')">NFT ID ↕</th>
+            <th onclick="sortTable('wallet')">Wallet Address ↕</th>
+            <th style="width:80px">View</th>
+            <th style="width:80px">Copy</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="pg-row">
+      <span class="pg-info" id="pgInfo"></span>
+      <div class="pg-btns" id="pgBtns"></div>
+    </div>
+  </div>
+
+</div>
+<script>
+// ── BSC Public RPC endpoints (fallback list) ────────────────────────────────
+const RPC_ENDPOINTS = [
+  "https://bsc-dataseed1.binance.org/",
+  "https://bsc-dataseed2.binance.org/",
+  "https://bsc-dataseed1.defibit.io/",
+  "https://bsc-dataseed2.defibit.io/",
+];
+let rpcIndex = 0;
+
+const ADMIN_WALLET  = "0x4D031E922792B46C9ddfDa923c246656CAC317cA";
+const GRBE_CONTRACT = "0x5Ca4e7294B14EA5745EE2A688990e0cb68503219";
+const NFT_CONTRACT  = "0x0D56354B247a6e1b0b0190476198E95Ad13d77a4";
+
+// ERC20 Transfer topic & ERC721 Transfer topic are the same signature
+const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+
+let allRows = [], filtered = [], currentPage = 1, pageSize = 50;
+let sortKey = 'nftId', sortAsc = true;
+
+// ── Logging ──────────────────────────────────────────────────────────────────
+function log(msg, type = '') {
+  const b = document.getElementById('logBody');
+  document.getElementById('logCard').style.display = 'block';
+  const d = document.createElement('div');
+  d.className = 'log-line ' + type;
+  const ts = new Date().toLocaleTimeString('en', { hour12: false });
+  d.textContent = `[${ts}] ${msg}`;
+  b.appendChild(d);
+  b.scrollTop = b.scrollHeight;
+}
+function setProgress(label, pct) {
+  document.getElementById('progressCard').style.display = 'block';
+  document.getElementById('progressLabel').textContent = label;
+  document.getElementById('progressPct').textContent = Math.round(pct) + '%';
+  document.getElementById('progressFill').style.width = pct + '%';
+}
+function showError(msg) {
+  const b = document.getElementById('errorBox');
+  b.textContent = '⚠ ' + msg;
+  b.style.display = 'block';
+}
+
+// ── RPC call helper ──────────────────────────────────────────────────────────
+async function rpc(method, params) {
+  for (let attempt = 0; attempt < RPC_ENDPOINTS.length; attempt++) {
+    const url = RPC_ENDPOINTS[(rpcIndex + attempt) % RPC_ENDPOINTS.length];
+    try {
+      const res  = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      return data.result;
+    } catch(e) {
+      if (attempt === RPC_ENDPOINTS.length - 1) throw e;
+      rpcIndex = (rpcIndex + 1) % RPC_ENDPOINTS.length;
+    }
+  }
+}
+
+// ── eth_getLogs in chunks (BSC RPC limit: 5000 blocks/call) ─────────────────
+async function getLogs(address, topics, fromBlock, toBlock) {
+  const CHUNK = 5000;
+  const from  = parseInt(fromBlock, 16);
+  const to    = parseInt(toBlock,   16);
+  const logs  = [];
+  for (let start = from; start <= to; start += CHUNK) {
+    const end = Math.min(start + CHUNK - 1, to);
+    const res = await rpc('eth_getLogs', [{
+      address,
+      topics,
+      fromBlock: '0x' + start.toString(16),
+      toBlock:   '0x' + end.toString(16),
+    }]);
+    if (res && res.length) logs.push(...res);
+    await new Promise(r => setTimeout(r, 80)); // gentle rate limit
+  }
+  return logs;
+}
+
+// ── Step 1: Get wallets that sent >= 1 GRBE to admin ────────────────────────
+async function getActiveWallets(latestBlock) {
+  log('Scanning GRBE Transfer events to admin wallet...');
+  setProgress('Reading GRBE transfers from blockchain...', 8);
+
+  // Determine fromBlock based on scan range setting
+  const rangeVal = document.getElementById('scanRange').value;
+  let fromBlock;
+  if (rangeVal === 'custom') {
+    const cb = parseInt(document.getElementById('customBlock').value);
+    if (!cb) throw new Error('Please enter a custom start block number.');
+    fromBlock = '0x' + cb.toString(16);
+  } else {
+    const latestNum = parseInt(latestBlock, 16);
+    const startNum  = Math.max(0, latestNum - parseInt(rangeVal));
+    fromBlock = '0x' + startNum.toString(16);
+  }
+  const rangeLabel = rangeVal === 'custom' ? `block ${parseInt(fromBlock,16).toLocaleString()}` : `last ${parseInt(rangeVal).toLocaleString()} blocks`;
+  log(`Scan range: ${rangeLabel} → block ${parseInt(latestBlock,16).toLocaleString()}`);
+
+  // Topic1 = any sender, Topic2 = admin wallet (padded to 32 bytes)
+  const adminPadded = '0x000000000000000000000000' + ADMIN_WALLET.slice(2).toLowerCase();
+  const logs = await getLogs(
+    GRBE_CONTRACT,
+    [TRANSFER_TOPIC, null, adminPadded],
+    fromBlock,
+    latestBlock
+  );
+
+  const ONE_GRBE = BigInt("1000000000000000000"); // 1e18
+  const walletSet = new Set();
+
+  for (const log of logs) {
+    try {
+      const amount = BigInt(log.data);
+      if (amount >= ONE_GRBE) {
+        // sender is topic[1], padded 32 bytes → extract last 20 bytes
+        const sender = '0x' + log.topics[1].slice(26).toLowerCase();
+        walletSet.add(sender);
+      }
+    } catch {}
+  }
+
+  log(`Found ${walletSet.size} unique wallets that sent ≥ 1 GRBE`, 'ok');
+  return [...walletSet];
+}
+
+// ── Step 2: Get NFT IDs currently held by a wallet ──────────────────────────
+async function getNftIdsForWallet(wallet, latestBlock) {
+  const walletPadded = '0x000000000000000000000000' + wallet.slice(2).toLowerCase();
+
+  // Fetch all Transfer events for this wallet (sent or received)
+  // NFT scan uses a wider window (3 months) to catch all ownership history
+  const latestNum  = parseInt(latestBlock, 16);
+  const nftFromNum = Math.max(0, latestNum - 900000); // ~3 months
+  const nftFrom    = '0x' + nftFromNum.toString(16);
+  const [received, sent] = await Promise.all([
+    getLogs(NFT_CONTRACT, [TRANSFER_TOPIC, null, walletPadded], nftFrom, latestBlock),
+    getLogs(NFT_CONTRACT, [TRANSFER_TOPIC, walletPadded, null], nftFrom, latestBlock),
+  ]);
+
+  // Merge and sort by blockNumber + logIndex
+  const all = [...received, ...sent].sort((a, b) => {
+    const ba = parseInt(a.blockNumber, 16), bb = parseInt(b.blockNumber, 16);
+    if (ba !== bb) return ba - bb;
+    return parseInt(a.logIndex, 16) - parseInt(b.logIndex, 16);
+  });
+
+  const balance = new Set();
+  const w = wallet.toLowerCase();
+
+  for (const log of all) {
+    const from = '0x' + log.topics[1].slice(26).toLowerCase();
+    const to   = '0x' + log.topics[2].slice(26).toLowerCase();
+    const id   = BigInt(log.topics[3]).toString();
+    if (to   === w) balance.add(id);
+    if (from === w) balance.delete(id);
+  }
+
+  return [...balance];
+}
+
+// ── Main scan ────────────────────────────────────────────────────────────────
+function toggleCustomBlock() {
+  const v = document.getElementById('scanRange').value;
+  document.getElementById('customBlockField').style.display = v === 'custom' ? 'block' : 'none';
+}
+
+async function runScan() {
+  document.getElementById('errorBox').style.display  = 'none';
+  document.getElementById('logBody').innerHTML        = '';
+  document.getElementById('statsRow').style.display  = 'none';
+  document.getElementById('tableCard').style.display = 'none';
+  allRows = []; filtered = [];
+  pageSize = parseInt(document.getElementById('pageSize').value) || 50;
+
+  const btn = document.getElementById('btnRun');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Scanning...';
+
+  try {
+    log('Connecting to BSC RPC...');
+    const latestBlock = await rpc('eth_blockNumber', []);
+    log(`Connected · Latest block: ${parseInt(latestBlock, 16).toLocaleString()}`, 'ok');
+
+    // Step 1
+    const wallets = await getActiveWallets(latestBlock);
+    if (!wallets.length) { log('No wallets found that sent GRBE.', 'warn'); return; }
+    document.getElementById('s1').textContent = wallets.length;
+
+    // Step 2
+    log(`Checking NFT Tree holdings for ${wallets.length} wallets...`);
+    let walletsWithNft = 0;
+
+    for (let i = 0; i < wallets.length; i++) {
+      const wallet = wallets[i];
+      setProgress(`Checking wallet ${i + 1} / ${wallets.length}`, 20 + (i / wallets.length) * 75);
+
+      try {
+        const ids = await getNftIdsForWallet(wallet, latestBlock);
+        if (ids.length > 0) {
+          walletsWithNft++;
+          log(`${wallet.slice(0,10)}...${wallet.slice(-6)} → ${ids.length} NFT(s): [${ids.slice(0,3).join(', ')}${ids.length > 3 ? '...' : ''}]`, 'ok');
+          ids.forEach(id => allRows.push({ nftId: id, wallet }));
+          document.getElementById('s2').textContent = walletsWithNft;
+          document.getElementById('s3').textContent = allRows.length;
+          document.getElementById('s4').textContent = allRows.length;
+        }
+      } catch(e) {
+        log(`Could not check ${wallet.slice(0,10)}: ${e.message}`, 'warn');
+      }
+
+      await new Promise(r => setTimeout(r, 100));
+    }
+
+    setProgress('Complete!', 100);
+    log(`─── Done: ${walletsWithNft} wallets with NFT Tree · ${allRows.length} total tickets ───`, 'ok');
+    document.getElementById('statsRow').style.display = 'grid';
+    filtered = [...allRows];
+    renderTable();
+
+  } catch(e) {
+    showError('RPC Error: ' + e.message);
+    log('Error: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '↺ &nbsp; Run Again';
+  }
+}
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  const total = filtered.length, pages = Math.ceil(total / pageSize);
+  if (currentPage > pages) currentPage = 1;
+  const start = (currentPage - 1) * pageSize;
+  const slice = filtered.slice(start, start + pageSize);
+
+  tbody.innerHTML = slice.map((row, i) => `
+    <tr>
+      <td style="color:var(--text3);font-family:'DM Mono',monospace;font-size:11px">${start + i + 1}</td>
+      <td><span class="nft-pill">#${row.nftId}</span></td>
+      <td class="wallet-mono">
+        <span class="wallet-full">${row.wallet}</span>
+        <span class="wallet-short">${row.wallet.slice(0,8)}...${row.wallet.slice(-6)}</span>
+      </td>
+      <td>
+        <a class="link-icon" href="https://bscscan.com/token/${NFT_CONTRACT}?a=${row.wallet}" target="_blank" title="View on BSCScan">↗</a>
+      </td>
+      <td>
+        <button class="btn-copy" onclick="copyText('${row.wallet}',this)">Copy</button>
+      </td>
+    </tr>`).join('');
+
+  document.getElementById('tableCard').style.display = 'block';
+  document.getElementById('pgInfo').textContent = `${filtered.length} entries · page ${currentPage} of ${pages || 1}`;
+  renderPagination(pages);
+}
+
+function renderPagination(pages) {
+  const c = document.getElementById('pgBtns');
+  if (pages <= 1) { c.innerHTML = ''; return; }
+  let h = `<button class="pg-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>`;
+  for (let i = 1; i <= pages; i++) {
+    if (i===1||i===pages||Math.abs(i-currentPage)<=1)
+      h += `<button class="pg-btn ${i===currentPage?'active':''}" onclick="goPage(${i})">${i}</button>`;
+    else if (Math.abs(i-currentPage)===2) h += `<span style="padding:0 4px;color:var(--text3)">…</span>`;
+  }
+  h += `<button class="pg-btn" onclick="goPage(${currentPage+1})" ${currentPage===pages?'disabled':''}>›</button>`;
+  c.innerHTML = h;
+}
+
+function goPage(p) {
+  const pages = Math.ceil(filtered.length / pageSize);
+  if (p < 1 || p > pages) return;
+  currentPage = p; renderTable();
+}
+
+function filterTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  filtered = allRows.filter(r => r.nftId.toLowerCase().includes(q) || r.wallet.toLowerCase().includes(q));
+  currentPage = 1; renderTable();
+}
+
+function sortTable(key) {
+  if (sortKey === key) sortAsc = !sortAsc; else { sortKey = key; sortAsc = true; }
+  filtered.sort((a, b) => {
+    const va = key==='nftId' ? Number(a[key]) : a[key];
+    const vb = key==='nftId' ? Number(b[key]) : b[key];
+    return sortAsc ? (va>vb?1:-1) : (va<vb?1:-1);
+  });
+  renderTable();
+}
+
+function copyForLottery() {
+  navigator.clipboard.writeText(allRows.map(r => r.nftId).join('\n'));
+  alert(`✓ Copied ${allRows.length} NFT IDs!\nPaste into the NFT IDs field in lottery-verify.html`);
+}
+
+function exportCSV() {
+  const csv  = 'No,NFT_ID,WALLET\n' + allRows.map((r,i)=>`${i+1},${r.nftId},${r.wallet}`).join('\n');
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const a    = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `nft-lottery-${Date.now()}.csv` });
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text);
+  const o = btn.textContent; btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = o, 1500);
+}
+
+</script>
+</body>
+</html>
