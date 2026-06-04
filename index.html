@@ -352,8 +352,10 @@ tr:hover td { background: var(--surface2); }
     <div class="card-body">
       <div class="cfg-grid">
         <div class="field cfg-full">
-          <div style="background:var(--green-bg);border:1px solid var(--green-bd);border-radius:8px;padding:11px 14px;font-size:13px;color:var(--green);font-weight:500;">
-            ✓ No API key needed — reads directly from BSC blockchain
+          <label>Moralis API Key (free at moralis.io)</label>
+          <input type="text" id="apiKey" placeholder="Paste your Moralis API Key here..." />
+          <div style="margin-top:6px;font-size:11px;color:var(--text3)">
+            Free tier: 40,000 requests/month · No credit card · Sign up at moralis.io
           </div>
         </div>
         <div class="field">
@@ -367,20 +369,6 @@ tr:hover td { background: var(--surface2); }
         <div class="field">
           <label>NFT Tree Contract</label>
           <input type="text" id="nftContract" value="0x0D56354B247a6e1b0b0190476198E95Ad13d77a4" readonly />
-        </div>
-        <div class="field">
-          <label>Scan Range (GRBE transfers)</label>
-          <select id="scanRange" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:9px 12px;outline:none;width:100%;" onchange="toggleCustomBlock()">
-            <option value="100000">Last ~4 days (100K blocks)</option>
-            <option value="300000">Last ~1 month (300K blocks)</option>
-            <option value="900000">Last ~3 months (900K blocks)</option>
-            <option value="11520000" selected>Last ~400 days (11.5M blocks)</option>
-            <option value="custom">Custom start block</option>
-          </select>
-        </div>
-        <div class="field" id="customBlockField" style="display:none">
-          <label>Start from block number</label>
-          <input type="number" id="customBlock" placeholder="e.g. 101900000" />
         </div>
         <div class="field">
           <label>Rows per page</label>
@@ -473,26 +461,14 @@ tr:hover td { background: var(--surface2); }
 
 </div>
 <script>
-// ── BSC Public RPC endpoints (fallback list) ────────────────────────────────
-const RPC_ENDPOINTS = [
-  "https://bsc-dataseed1.binance.org/",
-  "https://bsc-dataseed2.binance.org/",
-  "https://bsc-dataseed1.defibit.io/",
-  "https://bsc-dataseed2.defibit.io/",
-];
-let rpcIndex = 0;
-
 const ADMIN_WALLET  = "0x4D031E922792B46C9ddfDa923c246656CAC317cA";
 const GRBE_CONTRACT = "0x5Ca4e7294B14EA5745EE2A688990e0cb68503219";
 const NFT_CONTRACT  = "0x0D56354B247a6e1b0b0190476198E95Ad13d77a4";
-
-// ERC20 Transfer topic & ERC721 Transfer topic are the same signature
-const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+const MORALIS_BASE  = "https://deep-index.moralis.io/api/v2.2";
 
 let allRows = [], filtered = [], currentPage = 1, pageSize = 50;
 let sortKey = 'nftId', sortAsc = true;
 
-// ── Logging ──────────────────────────────────────────────────────────────────
 function log(msg, type = '') {
   const b = document.getElementById('logBody');
   document.getElementById('logCard').style.display = 'block';
@@ -515,85 +491,54 @@ function showError(msg) {
   b.style.display = 'block';
 }
 
-// ── RPC call helper ──────────────────────────────────────────────────────────
-async function rpc(method, params) {
-  for (let attempt = 0; attempt < RPC_ENDPOINTS.length; attempt++) {
-    const url = RPC_ENDPOINTS[(rpcIndex + attempt) % RPC_ENDPOINTS.length];
-    try {
-      const res  = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message);
-      return data.result;
-    } catch(e) {
-      if (attempt === RPC_ENDPOINTS.length - 1) throw e;
-      rpcIndex = (rpcIndex + 1) % RPC_ENDPOINTS.length;
-    }
+// ── Moralis API call ─────────────────────────────────────────────────────────
+async function moralis(path, apiKey, params = {}) {
+  const url = MORALIS_BASE + path + '?' + new URLSearchParams({ chain: '0x38', ...params });
+  const res  = await fetch(url, { headers: { 'X-API-Key': apiKey } });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `HTTP ${res.status}`);
   }
+  return res.json();
 }
 
-// ── eth_getLogs in chunks (BSC RPC limit: 5000 blocks/call) ─────────────────
-async function getLogs(address, topics, fromBlock, toBlock) {
-  const CHUNK = 5000;
-  const from  = parseInt(fromBlock, 16);
-  const to    = parseInt(toBlock,   16);
-  const logs  = [];
-  for (let start = from; start <= to; start += CHUNK) {
-    const end = Math.min(start + CHUNK - 1, to);
-    const res = await rpc('eth_getLogs', [{
-      address,
-      topics,
-      fromBlock: '0x' + start.toString(16),
-      toBlock:   '0x' + end.toString(16),
-    }]);
-    if (res && res.length) logs.push(...res);
-    await new Promise(r => setTimeout(r, 80)); // gentle rate limit
-  }
-  return logs;
+// ── Get ALL pages from Moralis (handles cursor pagination) ───────────────────
+async function moralisAllPages(path, apiKey, params = {}, onPage) {
+  let cursor = null, page = 0, allResults = [];
+  do {
+    const p = cursor ? { ...params, cursor } : params;
+    const data = await moralis(path, apiKey, p);
+    const items = data.result || [];
+    allResults.push(...items);
+    cursor = data.cursor || null;
+    page++;
+    if (onPage) onPage(page, allResults.length);
+    await new Promise(r => setTimeout(r, 150));
+  } while (cursor);
+  return allResults;
 }
 
 // ── Step 1: Get wallets that sent >= 1 GRBE to admin ────────────────────────
-async function getActiveWallets(latestBlock) {
-  log('Scanning GRBE Transfer events to admin wallet...');
-  setProgress('Reading GRBE transfers from blockchain...', 8);
+async function getActiveWallets(apiKey) {
+  log('Fetching GRBE transfers to admin wallet via Moralis...');
+  setProgress('Reading GRBE transfers...', 10);
 
-  // Determine fromBlock based on scan range setting
-  const rangeVal = document.getElementById('scanRange').value;
-  let fromBlock;
-  if (rangeVal === 'custom') {
-    const cb = parseInt(document.getElementById('customBlock').value);
-    if (!cb) throw new Error('Please enter a custom start block number.');
-    fromBlock = '0x' + cb.toString(16);
-  } else {
-    const latestNum = parseInt(latestBlock, 16);
-    const startNum  = Math.max(0, latestNum - parseInt(rangeVal));
-    fromBlock = '0x' + startNum.toString(16);
-  }
-  const rangeLabel = rangeVal === 'custom' ? `block ${parseInt(fromBlock,16).toLocaleString()}` : `last ${parseInt(rangeVal).toLocaleString()} blocks`;
-  log(`Scan range: ${rangeLabel} → block ${parseInt(latestBlock,16).toLocaleString()}`);
-
-  // Topic1 = any sender, Topic2 = admin wallet (padded to 32 bytes)
-  const adminPadded = '0x000000000000000000000000' + ADMIN_WALLET.slice(2).toLowerCase();
-  const logs = await getLogs(
-    GRBE_CONTRACT,
-    [TRANSFER_TOPIC, null, adminPadded],
-    fromBlock,
-    latestBlock
+  const txs = await moralisAllPages(
+    `/erc20/${GRBE_CONTRACT}/transfers`,
+    apiKey,
+    { limit: 100, to_address: ADMIN_WALLET },
+    (page, total) => {
+      setProgress(`Reading GRBE transfers... (${total} txs)`, 10 + page * 2);
+      log(`Page ${page}: ${total} transfers found`);
+    }
   );
 
-  const ONE_GRBE = BigInt("1000000000000000000"); // 1e18
+  const ONE_GRBE = BigInt("1000000000000000000");
   const walletSet = new Set();
-
-  for (const log of logs) {
+  for (const tx of txs) {
     try {
-      const amount = BigInt(log.data);
-      if (amount >= ONE_GRBE) {
-        // sender is topic[1], padded 32 bytes → extract last 20 bytes
-        const sender = '0x' + log.topics[1].slice(26).toLowerCase();
-        walletSet.add(sender);
+      if (BigInt(tx.value) >= ONE_GRBE) {
+        walletSet.add(tx.from_address.toLowerCase());
       }
     } catch {}
   }
@@ -602,48 +547,21 @@ async function getActiveWallets(latestBlock) {
   return [...walletSet];
 }
 
-// ── Step 2: Get NFT IDs currently held by a wallet ──────────────────────────
-async function getNftIdsForWallet(wallet, latestBlock) {
-  const walletPadded = '0x000000000000000000000000' + wallet.slice(2).toLowerCase();
-
-  // Fetch all Transfer events for this wallet (sent or received)
-  // NFT scan uses a wider window (3 months) to catch all ownership history
-  const latestNum  = parseInt(latestBlock, 16);
-  const nftFromNum = Math.max(0, latestNum - 900000); // ~3 months
-  const nftFrom    = '0x' + nftFromNum.toString(16);
-  const [received, sent] = await Promise.all([
-    getLogs(NFT_CONTRACT, [TRANSFER_TOPIC, null, walletPadded], nftFrom, latestBlock),
-    getLogs(NFT_CONTRACT, [TRANSFER_TOPIC, walletPadded, null], nftFrom, latestBlock),
-  ]);
-
-  // Merge and sort by blockNumber + logIndex
-  const all = [...received, ...sent].sort((a, b) => {
-    const ba = parseInt(a.blockNumber, 16), bb = parseInt(b.blockNumber, 16);
-    if (ba !== bb) return ba - bb;
-    return parseInt(a.logIndex, 16) - parseInt(b.logIndex, 16);
-  });
-
-  const balance = new Set();
-  const w = wallet.toLowerCase();
-
-  for (const log of all) {
-    const from = '0x' + log.topics[1].slice(26).toLowerCase();
-    const to   = '0x' + log.topics[2].slice(26).toLowerCase();
-    const id   = BigInt(log.topics[3]).toString();
-    if (to   === w) balance.add(id);
-    if (from === w) balance.delete(id);
-  }
-
-  return [...balance];
+// ── Step 2: Get NFT IDs held by a wallet ────────────────────────────────────
+async function getNftIdsForWallet(wallet, apiKey) {
+  const data = await moralis(
+    `/${wallet}/nft`,
+    apiKey,
+    { token_addresses: NFT_CONTRACT, limit: 100 }
+  );
+  return (data.result || []).map(n => n.token_id);
 }
 
 // ── Main scan ────────────────────────────────────────────────────────────────
-function toggleCustomBlock() {
-  const v = document.getElementById('scanRange').value;
-  document.getElementById('customBlockField').style.display = v === 'custom' ? 'block' : 'none';
-}
-
 async function runScan() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) { showError('Please enter your Moralis API Key.'); return; }
+
   document.getElementById('errorBox').style.display  = 'none';
   document.getElementById('logBody').innerHTML        = '';
   document.getElementById('statsRow').style.display  = 'none';
@@ -656,25 +574,19 @@ async function runScan() {
   btn.innerHTML = '<span class="spinner"></span>Scanning...';
 
   try {
-    log('Connecting to BSC RPC...');
-    const latestBlock = await rpc('eth_blockNumber', []);
-    log(`Connected · Latest block: ${parseInt(latestBlock, 16).toLocaleString()}`, 'ok');
-
-    // Step 1
-    const wallets = await getActiveWallets(latestBlock);
+    const wallets = await getActiveWallets(apiKey);
     if (!wallets.length) { log('No wallets found that sent GRBE.', 'warn'); return; }
     document.getElementById('s1').textContent = wallets.length;
 
-    // Step 2
     log(`Checking NFT Tree holdings for ${wallets.length} wallets...`);
     let walletsWithNft = 0;
 
     for (let i = 0; i < wallets.length; i++) {
       const wallet = wallets[i];
-      setProgress(`Checking wallet ${i + 1} / ${wallets.length}`, 20 + (i / wallets.length) * 75);
+      setProgress(`Checking wallet ${i + 1} / ${wallets.length}`, 40 + (i / wallets.length) * 55);
 
       try {
-        const ids = await getNftIdsForWallet(wallet, latestBlock);
+        const ids = await getNftIdsForWallet(wallet, apiKey);
         if (ids.length > 0) {
           walletsWithNft++;
           log(`${wallet.slice(0,10)}...${wallet.slice(-6)} → ${ids.length} NFT(s): [${ids.slice(0,3).join(', ')}${ids.length > 3 ? '...' : ''}]`, 'ok');
@@ -686,8 +598,7 @@ async function runScan() {
       } catch(e) {
         log(`Could not check ${wallet.slice(0,10)}: ${e.message}`, 'warn');
       }
-
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 150));
     }
 
     setProgress('Complete!', 100);
@@ -697,13 +608,16 @@ async function runScan() {
     renderTable();
 
   } catch(e) {
-    showError('RPC Error: ' + e.message);
+    showError('Error: ' + e.message);
     log('Error: ' + e.message, 'err');
   } finally {
     btn.disabled = false;
     btn.innerHTML = '↺ &nbsp; Run Again';
   }
 }
+
+function toggleCustomBlock() {}
+
 function renderTable() {
   const tbody = document.getElementById('tableBody');
   const total = filtered.length, pages = Math.ceil(total / pageSize);
@@ -784,6 +698,7 @@ function copyText(text, btn) {
   const o = btn.textContent; btn.textContent = 'Copied!';
   setTimeout(() => btn.textContent = o, 1500);
 }
+
 
 </script>
 </body>
