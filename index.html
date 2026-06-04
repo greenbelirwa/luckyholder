@@ -519,23 +519,26 @@ async function moralisAllPages(path, apiKey, params = {}, onPage) {
 }
 
 // ── Step 1: Get wallets that sent >= 1 GRBE to admin ────────────────────────
+// Query thẳng lịch sử token transfers của ví admin — nhanh hơn nhiều
 async function getActiveWallets(apiKey) {
-  log('Fetching GRBE transfers to admin wallet via Moralis...');
-  setProgress('Reading GRBE transfers...', 10);
+  log('Fetching incoming GRBE transfers of admin wallet...');
+  setProgress('Reading admin wallet transfers...', 10);
 
   const txs = await moralisAllPages(
-    `/erc20/${GRBE_CONTRACT}/transfers`,
+    `/${ADMIN_WALLET}/erc20/transfers`,
     apiKey,
-    { limit: 100, to_address: ADMIN_WALLET },
+    { limit: 100, contract_addresses: [GRBE_CONTRACT] },
     (page, total) => {
-      setProgress(`Reading GRBE transfers... (${total} txs)`, 10 + page * 2);
-      log(`Page ${page}: ${total} transfers found`);
+      setProgress(`Reading admin wallet... (${total} txs so far)`, 10 + page * 3);
+      log(`Page ${page}: ${total} transfers fetched`);
     }
   );
 
   const ONE_GRBE = BigInt("1000000000000000000");
   const walletSet = new Set();
   for (const tx of txs) {
+    // Chỉ lấy tx GỬI VÀO admin (to = admin)
+    if (tx.to_address.toLowerCase() !== ADMIN_WALLET.toLowerCase()) continue;
     try {
       if (BigInt(tx.value) >= ONE_GRBE) {
         walletSet.add(tx.from_address.toLowerCase());
