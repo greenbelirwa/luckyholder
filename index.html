@@ -3,321 +3,417 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NFT Tree — Active User Scanner</title>
+<title>Green Beli — Lucky Holder Draw</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg:        #f5f7fa;
-  --surface:   #ffffff;
-  --surface2:  #f0f3f8;
-  --border:    #e2e8f0;
-  --border2:   #cbd5e1;
-  --text:      #1a2332;
-  --text2:     #64748b;
-  --text3:     #94a3b8;
-  --green:     #059669;
-  --green-bg:  #ecfdf5;
-  --green-bd:  #a7f3d0;
-  --blue:      #2563eb;
-  --blue-bg:   #eff6ff;
-  --blue-bd:   #bfdbfe;
-  --amber:     #d97706;
-  --amber-bg:  #fffbeb;
-  --red:       #dc2626;
-  --red-bg:    #fef2f2;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-  --shadow:    0 4px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04);
-  --radius:    12px;
+  --green-50:   #f0faf4;
+  --green-100:  #dcf5e7;
+  --green-200:  #b8ecce;
+  --green-400:  #4ade80;
+  --green-500:  #22c55e;
+  --green-600:  #16a34a;
+  --green-700:  #15803d;
+  --green-800:  #166534;
+  --lime-400:   #a3e635;
+  --lime-500:   #84cc16;
+  --amber-400:  #fbbf24;
+  --amber-500:  #f59e0b;
+  --white:      #ffffff;
+  --gray-50:    #f9fafb;
+  --gray-100:   #f3f4f6;
+  --gray-200:   #e5e7eb;
+  --gray-300:   #d1d5db;
+  --gray-500:   #6b7280;
+  --gray-700:   #374151;
+  --gray-900:   #111827;
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.08);
+  --shadow:     0 4px 20px rgba(22,163,74,0.12), 0 1px 4px rgba(0,0,0,0.06);
+  --shadow-lg:  0 12px 40px rgba(22,163,74,0.18), 0 4px 12px rgba(0,0,0,0.08);
+  --radius:     16px;
+  --radius-sm:  10px;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 14px;
+  background: linear-gradient(160deg, #f0faf4 0%, #ffffff 40%, #f7fef9 100%);
+  color: var(--gray-900);
+  font-family: 'Plus Jakarta Sans', sans-serif;
   min-height: 100vh;
-  line-height: 1.5;
 }
 
-/* subtle dot pattern bg */
+/* Decorative blobs */
 body::before {
   content: '';
-  position: fixed; inset: 0;
-  background-image: radial-gradient(circle, #cbd5e1 1px, transparent 1px);
-  background-size: 24px 24px;
-  opacity: 0.45;
+  position: fixed;
+  top: -200px; right: -200px;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(74,222,128,0.15) 0%, transparent 70%);
+  pointer-events: none; z-index: 0;
+}
+body::after {
+  content: '';
+  position: fixed;
+  bottom: -150px; left: -150px;
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(163,230,53,0.1) 0%, transparent 70%);
   pointer-events: none; z-index: 0;
 }
 
 .wrap {
   position: relative; z-index: 1;
-  max-width: 960px; margin: 0 auto;
-  padding: 40px 20px 80px;
+  max-width: 900px; margin: 0 auto;
+  padding: 40px 20px 100px;
 }
 
 /* ── Header ── */
-.header { margin-bottom: 36px; }
-.header-inner {
+.header {
   display: flex; align-items: center; justify-content: space-between;
-  flex-wrap: wrap; gap: 16px;
+  margin-bottom: 48px; flex-wrap: wrap; gap: 16px;
 }
-.logo-group { display: flex; align-items: center; gap: 14px; }
-.logo-icon {
-  width: 44px; height: 44px;
-  background: linear-gradient(135deg, #059669, #10b981);
-  border-radius: 12px;
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-icon {
+  width: 48px; height: 48px;
+  background: linear-gradient(135deg, var(--green-500), var(--lime-500));
+  border-radius: 14px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 22px; box-shadow: 0 4px 12px rgba(5,150,105,0.25);
+  font-size: 24px;
+  box-shadow: 0 4px 16px rgba(34,197,94,0.35);
 }
-.logo-text h1 { font-size: 20px; font-weight: 600; color: var(--text); letter-spacing: -0.3px; }
-.logo-text p  { font-size: 12px; color: var(--text3); margin-top: 1px; }
-.network-badge {
+.brand-name {
+  font-size: 20px; font-weight: 800;
+  background: linear-gradient(135deg, var(--green-700), var(--green-500));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  letter-spacing: -0.5px;
+}
+.brand-sub { font-size: 12px; color: var(--gray-500); margin-top: 1px; }
+.fair-badge {
   display: flex; align-items: center; gap: 6px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 20px; padding: 6px 14px;
-  font-size: 12px; color: var(--text2);
-  box-shadow: var(--shadow-sm);
+  background: var(--green-50);
+  border: 1.5px solid var(--green-200);
+  border-radius: 20px; padding: 7px 16px;
+  font-size: 12px; font-weight: 600; color: var(--green-700);
 }
-.network-dot {
+.fair-dot {
   width: 7px; height: 7px; border-radius: 50%;
-  background: var(--green);
-  box-shadow: 0 0 0 2px var(--green-bg);
+  background: var(--green-500);
+  box-shadow: 0 0 0 3px rgba(34,197,94,0.2);
+  animation: pulse 2s infinite;
 }
+@keyframes pulse { 0%,100%{box-shadow:0 0 0 3px rgba(34,197,94,0.2)} 50%{box-shadow:0 0 0 6px rgba(34,197,94,0.08)} }
+
+/* ── Hero ── */
+.hero {
+  text-align: center;
+  padding: 40px 20px;
+  background: linear-gradient(135deg, var(--green-600) 0%, var(--green-500) 50%, var(--lime-500) 100%);
+  border-radius: 24px;
+  margin-bottom: 32px;
+  position: relative; overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+.hero::before {
+  content: '🌳🌿🍃🌱🌳';
+  position: absolute; top: -10px; left: 0; right: 0;
+  font-size: 80px; opacity: 0.08; letter-spacing: 20px;
+  text-align: center; pointer-events: none;
+}
+.hero-tag {
+  display: inline-block;
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.35);
+  border-radius: 20px; padding: 5px 16px;
+  font-size: 11px; font-weight: 600;
+  color: rgba(255,255,255,0.9); letter-spacing: 2px;
+  text-transform: uppercase; margin-bottom: 16px;
+}
+.hero h1 {
+  font-size: clamp(32px, 6vw, 54px);
+  font-weight: 800; color: #fff;
+  letter-spacing: -1.5px; line-height: 1.05;
+  margin-bottom: 10px;
+}
+.hero p {
+  font-size: 15px; color: rgba(255,255,255,0.8);
+  font-weight: 400;
+}
+
+/* ── Step labels ── */
+.step-row {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 20px; margin-bottom: 20px;
+}
+@media(max-width:600px){ .step-row { grid-template-columns: 1fr; } }
 
 /* ── Card ── */
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--white);
+  border: 1.5px solid var(--gray-100);
   border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
-  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
 }
 .card-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 12px;
+  padding: 16px 22px;
+  border-bottom: 1.5px solid var(--gray-100);
+  display: flex; align-items: center; gap: 12px;
 }
-.card-title {
-  font-size: 13px; font-weight: 600;
-  color: var(--text2); letter-spacing: 0.5px; text-transform: uppercase;
+.step-num {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--green-500), var(--lime-500));
+  color: white; font-weight: 800; font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(34,197,94,0.3);
 }
-.card-body { padding: 20px; }
+.card-title { font-size: 14px; font-weight: 700; color: var(--gray-900); }
+.card-sub   { font-size: 11px; color: var(--gray-500); margin-top: 1px; }
+.card-body  { padding: 22px; }
 
-/* ── Config grid ── */
-.cfg-grid {
-  display: grid; grid-template-columns: 1fr 1fr;
-  gap: 14px;
+/* ── Upload zone ── */
+.upload-zone {
+  border: 2px dashed var(--green-200);
+  border-radius: var(--radius-sm);
+  padding: 32px 20px;
+  text-align: center; cursor: pointer;
+  transition: all 0.2s;
+  background: var(--green-50);
+  position: relative;
 }
-@media(max-width:580px){ .cfg-grid { grid-template-columns: 1fr; } }
-.cfg-full { grid-column: 1 / -1; }
+.upload-zone:hover, .upload-zone.drag {
+  border-color: var(--green-500);
+  background: #ecfdf5;
+}
+.upload-zone input[type=file] {
+  position: absolute; inset: 0; opacity: 0;
+  cursor: pointer; width: 100%; height: 100%;
+}
+.upload-icon { font-size: 36px; margin-bottom: 10px; }
+.upload-hint { font-size: 13px; color: var(--gray-500); line-height: 1.8; }
+.upload-hint b { color: var(--gray-900); }
+.upload-ok {
+  display: none; margin-top: 14px;
+  background: var(--green-100); border: 1px solid var(--green-200);
+  border-radius: 8px; padding: 10px 14px;
+  font-size: 13px; font-weight: 600; color: var(--green-700);
+  text-align: left;
+}
 
-.field { display: flex; flex-direction: column; gap: 5px; }
+/* ── Fields ── */
+.field { margin-bottom: 16px; }
+.field:last-child { margin-bottom: 0; }
 .field label {
-  font-size: 11px; font-weight: 600;
-  color: var(--text2); letter-spacing: 0.5px; text-transform: uppercase;
+  display: block; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.8px; text-transform: uppercase;
+  color: var(--gray-500); margin-bottom: 7px;
 }
 .field input {
-  background: var(--surface2);
-  border: 1.5px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
+  width: 100%;
+  background: var(--gray-50);
+  border: 1.5px solid var(--gray-200);
+  border-radius: 10px;
   font-family: 'DM Mono', monospace;
-  font-size: 12px; padding: 9px 12px;
-  outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+  font-size: 13px; color: var(--gray-900);
+  padding: 11px 14px; outline: none;
+  transition: all 0.15s;
 }
 .field input:focus {
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
-  background: var(--surface);
+  border-color: var(--green-400);
+  background: white;
+  box-shadow: 0 0 0 3px rgba(74,222,128,0.15);
 }
-.field input[readonly] { color: var(--text2); cursor: default; }
-.field input[readonly]:focus { border-color: var(--border); box-shadow: none; }
+.field .hint {
+  font-size: 11px; color: var(--gray-500);
+  margin-top: 5px; line-height: 1.5;
+}
 
-/* ── Run Button ── */
-.btn-run {
-  width: 100%; padding: 13px 24px;
-  background: linear-gradient(135deg, #059669, #10b981);
-  border: none; border-radius: 9px;
-  color: #fff; font-family: 'DM Sans', sans-serif;
-  font-size: 15px; font-weight: 600; letter-spacing: 0.3px;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(5,150,105,0.3);
+/* ── Algorithm panel ── */
+.algo-card {
+  background: var(--white);
+  border: 1.5px solid var(--green-200);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow);
+}
+.algo-header {
+  background: var(--green-50);
+  border-bottom: 1.5px solid var(--green-200);
+  padding: 12px 22px;
+  display: flex; align-items: center; gap: 10px;
+}
+.algo-header-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--green-500);
+  box-shadow: 0 0 6px rgba(34,197,94,0.4);
+}
+.algo-title { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--green-700); text-transform: uppercase; }
+.algo-body {
+  padding: 20px 24px;
+  font-family: 'DM Mono', monospace; font-size: 12.5px; line-height: 2.2;
+  overflow-x: auto; background: white;
+}
+.c-comment { color: #9ca3af; }
+.c-key     { color: var(--green-700); font-weight: 600; }
+.c-val     { color: #d97706; }
+.c-fn      { color: #2563eb; }
+.c-num     { color: #dc2626; }
+.c-white   { color: var(--gray-700); }
+
+/* ── Draw button ── */
+.btn-draw {
+  width: 100%; padding: 18px;
+  background: linear-gradient(135deg, var(--green-600), var(--green-500), var(--lime-500));
+  border: none; border-radius: var(--radius-sm);
+  color: white;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 17px; font-weight: 800; letter-spacing: 0.3px;
+  cursor: pointer; margin-bottom: 28px;
+  box-shadow: 0 6px 24px rgba(34,197,94,0.4);
   transition: all 0.2s; position: relative; overflow: hidden;
 }
-.btn-run:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(5,150,105,0.35); }
-.btn-run:active { transform: translateY(0); }
-.btn-run:disabled {
-  background: var(--border2); color: var(--text3);
+.btn-draw:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 32px rgba(34,197,94,0.5);
+}
+.btn-draw:active { transform: translateY(0); }
+.btn-draw:disabled {
+  background: var(--gray-200); color: var(--gray-500);
   box-shadow: none; cursor: not-allowed; transform: none;
 }
 
-/* ── Stats ── */
-.stats {
-  display: grid; grid-template-columns: repeat(4,1fr); gap: 12px;
-  margin-bottom: 16px; display: none;
+/* ── Error ── */
+.error-box {
+  background: #fef2f2; border: 1.5px solid #fecaca;
+  border-radius: var(--radius-sm); padding: 13px 16px;
+  color: #dc2626; font-size: 13px; margin-bottom: 20px; display: none;
 }
-@media(max-width:580px){ .stats { grid-template-columns: repeat(2,1fr); } }
-.stat-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
+
+/* ── Results ── */
+.results { display: none; }
+.results-top {
+  background: linear-gradient(135deg, var(--green-600), var(--lime-500));
   border-radius: var(--radius);
-  padding: 18px 16px;
-  box-shadow: var(--shadow-sm);
+  padding: 28px 28px 24px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-lg);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 16px;
 }
-.stat-val {
+.results-title-wrap h2 {
+  font-size: 32px; font-weight: 800;
+  color: white; letter-spacing: -1px;
+}
+.results-title-wrap p { font-size: 13px; color: rgba(255,255,255,0.8); margin-top: 4px; }
+.verified-pill {
+  background: rgba(255,255,255,0.2);
+  border: 1.5px solid rgba(255,255,255,0.4);
+  border-radius: 20px; padding: 8px 18px;
+  font-size: 12px; font-weight: 700; color: white;
+  letter-spacing: 1px;
+}
+
+/* Seed info */
+.seed-card {
+  background: white; border: 1.5px solid var(--green-200);
+  border-left: 4px solid var(--green-500);
+  border-radius: var(--radius-sm);
+  padding: 16px 20px; margin-bottom: 20px;
+  font-size: 12px; line-height: 2.2;
   font-family: 'DM Mono', monospace;
-  font-size: 28px; font-weight: 500; color: var(--text);
-  letter-spacing: -1px; line-height: 1;
 }
-.stat-lbl {
-  font-size: 11px; color: var(--text3);
-  margin-top: 5px; font-weight: 500; letter-spacing: 0.3px;
-}
-.stat-card.green .stat-val { color: var(--green); }
-.stat-card.blue  .stat-val { color: var(--blue); }
-.stat-card.amber .stat-val { color: var(--amber); }
+.seed-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: baseline; }
+.seed-key { color: var(--gray-500); min-width: 130px; font-size: 11px; }
+.seed-val { color: var(--gray-900); font-weight: 600; word-break: break-all; }
 
-/* ── Progress ── */
-.progress-card { display: none; }
-.progress-top {
-  display: flex; justify-content: space-between;
-  font-size: 12px; color: var(--text2); margin-bottom: 8px;
-}
-.progress-track {
-  height: 6px; background: var(--surface2);
-  border-radius: 3px; overflow: hidden;
-}
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #059669, #34d399);
-  border-radius: 3px; transition: width 0.4s ease;
-}
+/* Winner list */
+.winners-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
 
-/* ── Log ── */
-.log-card { display: none; }
-.log-body {
-  padding: 14px 16px;
-  font-family: 'DM Mono', monospace; font-size: 11.5px;
-  max-height: 200px; overflow-y: auto; line-height: 2;
+.winner-card {
+  background: white;
+  border: 1.5px solid var(--gray-100);
+  border-radius: var(--radius-sm);
+  display: grid; grid-template-columns: 56px 1fr auto;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  animation: popIn 0.4s cubic-bezier(0.2,0.8,0.3,1.2) both;
 }
-.log-line         { color: var(--text2); }
-.log-line.ok      { color: var(--green); }
-.log-line.warn    { color: var(--amber); }
-.log-line.err     { color: var(--red); }
-
-/* ── Table ── */
-.table-card { display: none; }
-.search-row { padding: 12px 16px; border-bottom: 1px solid var(--border); }
-.search-row input {
-  width: 100%; padding: 8px 12px;
-  background: var(--surface2);
-  border: 1.5px solid var(--border);
-  border-radius: 8px; outline: none;
-  font-family: 'DM Sans', sans-serif; font-size: 13px;
-  color: var(--text); transition: border-color 0.15s;
+@keyframes popIn {
+  from { opacity:0; transform: scale(0.94) translateY(10px); }
+  to   { opacity:1; transform: scale(1) translateY(0); }
 }
-.search-row input:focus { border-color: var(--blue); background: var(--surface); }
-.search-row input::placeholder { color: var(--text3); }
+.winner-card:nth-child(1) { animation-delay:0.05s; }
+.winner-card:nth-child(2) { animation-delay:0.12s; }
+.winner-card:nth-child(3) { animation-delay:0.19s; }
+.winner-card:nth-child(4) { animation-delay:0.26s; }
+.winner-card:nth-child(5) { animation-delay:0.33s; }
+.winner-card:nth-child(n+6){ animation-delay:0.38s; }
 
-.export-btns { display: flex; gap: 8px; }
+.w-rank {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 900;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background: var(--green-50);
+}
+.winner-card:nth-child(1) .w-rank { background: linear-gradient(135deg,#fef3c7,#fde68a); font-size: 26px; }
+.winner-card:nth-child(2) .w-rank { background: linear-gradient(135deg,#f3f4f6,#e5e7eb); }
+.winner-card:nth-child(3) .w-rank { background: linear-gradient(135deg,#fef3e2,#fed7aa); }
+
+.w-body { padding: 14px 16px; }
+.w-nft {
+  font-size: 15px; font-weight: 700; color: var(--gray-900);
+  margin-bottom: 3px;
+}
+.w-nft em { color: var(--green-600); font-style: normal; }
+.w-wallet {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px; color: var(--gray-500);
+  word-break: break-all;
+}
+.w-wallet a { color: var(--green-600); text-decoration: none; }
+.w-wallet a:hover { text-decoration: underline; }
+
+.w-actions {
+  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 5px; justify-content: center;
+}
 .btn-sm {
-  padding: 6px 14px;
-  border-radius: 7px; font-size: 12px; font-weight: 500;
-  cursor: pointer; transition: all 0.15s; font-family: 'DM Sans', sans-serif;
+  background: white; border: 1.5px solid var(--gray-200);
+  border-radius: 7px; padding: 5px 11px;
+  font-size: 11px; font-weight: 600; font-family: 'Plus Jakarta Sans', sans-serif;
+  color: var(--gray-500); cursor: pointer; white-space: nowrap;
+  transition: all 0.15s;
+}
+.btn-sm:hover { border-color: var(--green-400); color: var(--green-600); background: var(--green-50); }
+
+/* Export bar */
+.export-bar {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  padding-top: 20px; border-top: 1.5px solid var(--gray-100);
+}
+.btn-export {
+  padding: 10px 22px; border-radius: 9px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: all 0.15s;
 }
 .btn-outline {
-  background: transparent; border: 1.5px solid var(--border2);
-  color: var(--text2);
+  background: white; border: 1.5px solid var(--gray-200); color: var(--gray-700);
 }
-.btn-outline:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); }
-.btn-primary {
-  background: var(--green); border: none; color: #fff;
-  box-shadow: 0 2px 6px rgba(5,150,105,0.25);
+.btn-outline:hover { border-color: var(--green-400); color: var(--green-700); background: var(--green-50); }
+.btn-filled {
+  background: linear-gradient(135deg, var(--green-600), var(--green-500));
+  border: none; color: white;
+  box-shadow: 0 4px 12px rgba(34,197,94,0.3);
 }
-.btn-primary:hover { background: #047857; }
-
-table { width: 100%; border-collapse: collapse; }
-thead tr { background: var(--surface2); }
-th {
-  padding: 10px 16px;
-  font-size: 11px; font-weight: 600; letter-spacing: 0.5px;
-  color: var(--text2); text-transform: uppercase;
-  text-align: left; border-bottom: 1px solid var(--border);
-  cursor: pointer; user-select: none; white-space: nowrap;
-}
-th:hover { color: var(--blue); }
-td {
-  padding: 11px 16px;
-  border-bottom: 1px solid var(--border);
-  font-size: 13px; vertical-align: middle;
-}
-tr:last-child td { border-bottom: none; }
-tr:hover td { background: var(--surface2); }
-
-.nft-pill {
-  display: inline-block;
-  background: var(--green-bg); border: 1px solid var(--green-bd);
-  color: var(--green); border-radius: 6px;
-  font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500;
-  padding: 3px 10px;
-}
-.wallet-mono {
-  font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text2);
-}
-.wallet-short { display: none; }
-@media(max-width:700px){
-  .wallet-full  { display: none; }
-  .wallet-short { display: inline; }
-}
-.link-icon {
-  color: var(--blue); text-decoration: none; font-size: 13px;
-  opacity: 0.7; transition: opacity 0.15s;
-}
-.link-icon:hover { opacity: 1; }
-.btn-copy {
-  background: transparent; border: 1.5px solid var(--border);
-  border-radius: 6px; padding: 4px 10px;
-  font-size: 11px; font-family: 'DM Sans', sans-serif;
-  color: var(--text3); cursor: pointer; transition: all 0.15s;
-}
-.btn-copy:hover { border-color: var(--blue); color: var(--blue); }
-
-/* pagination */
-.pg-row {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 12px 16px; border-top: 1px solid var(--border);
-  flex-wrap: wrap; gap: 8px;
-}
-.pg-info { font-size: 12px; color: var(--text3); }
-.pg-btns { display: flex; gap: 4px; }
-.pg-btn {
-  min-width: 32px; height: 32px; padding: 0 8px;
-  background: var(--surface); border: 1.5px solid var(--border);
-  border-radius: 7px; color: var(--text2);
-  font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
-  cursor: pointer; transition: all 0.15s;
-}
-.pg-btn:hover, .pg-btn.active {
-  border-color: var(--green); color: var(--green); background: var(--green-bg);
-}
-.pg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-/* error */
-.error-box {
-  background: var(--red-bg); border: 1px solid #fecaca;
-  border-radius: 9px; padding: 12px 16px;
-  color: var(--red); font-size: 13px; margin-bottom: 14px; display: none;
-}
+.btn-filled:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(34,197,94,0.4); }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 .spinner {
-  display: inline-block; width: 14px; height: 14px;
-  border: 2px solid rgba(255,255,255,0.4);
+  display: inline-block; width: 16px; height: 16px;
+  border: 2.5px solid rgba(255,255,255,0.4);
   border-top-color: #fff; border-radius: 50%;
   animation: spin 0.7s linear infinite;
   vertical-align: middle; margin-right: 8px;
@@ -329,380 +425,356 @@ tr:hover td { background: var(--surface2); }
 
   <!-- Header -->
   <div class="header">
-    <div class="header-inner">
-      <div class="logo-group">
-        <div class="logo-icon">🌳</div>
-        <div class="logo-text">
-          <h1>NFT Tree Lottery</h1>
-          <p>Active User Scanner — BSC Mainnet</p>
+    <div class="brand">
+      <div class="brand-icon">🌳</div>
+      <div>
+        <div class="brand-name">Green Beli</div>
+        <div class="brand-sub">Lucky Holder Draw</div>
+      </div>
+    </div>
+    <div class="fair-badge">
+      <span class="fair-dot"></span>
+      Provably Fair · On-chain Verified
+    </div>
+  </div>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-tag">🏆 Lucky Holder Draw</div>
+    <h1>Lucky Holder<br>Draw</h1>
+    <p>Seeded by BSC block hash · Publicly verifiable · Anyone can reproduce</p>
+  </div>
+
+  <!-- Step cards -->
+  <div class="step-row">
+    <!-- Upload CSV -->
+    <div class="card">
+      <div class="card-header">
+        <div class="step-num">1</div>
+        <div>
+          <div class="card-title">Upload Participant List</div>
+          <div class="card-sub">Paste the published Google Sheet link</div>
         </div>
       </div>
-      <div class="network-badge">
-        <span class="network-dot"></span>
-        BSC Mainnet · Chain 56
+      <div class="card-body">
+        <div class="field">
+          <label>Google Sheet URL</label>
+          <input type="text" id="sheetUrl"
+            placeholder="Paste Google Sheet link here..."
+            style="font-family:'DM Mono',monospace;font-size:12px;" />
+          <div class="hint">
+            Sheet must be <b>published to web</b>:<br>
+            File → Share → Publish to web → CSV → Copy link
+          </div>
+        </div>
+        <button onclick="loadSheet()"
+          style="width:100%;background:var(--green-600);border:none;border-radius:9px;color:white;font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:13px;padding:11px;cursor:pointer;transition:all 0.2s;margin-top:4px;"
+          id="btnLoad">
+          Load Participant List
+        </button>
+        <div class="upload-ok" id="uploadOk" style="margin-top:12px;"></div>
+
+        <!-- Hash verify -->
+        <div id="hashVerifyBox" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--gray-100);">
+          <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gray-500);margin-bottom:6px;">
+            🔐 Verify Integrity Hash (optional)
+          </div>
+          <input type="text" id="expectedHash"
+            placeholder="Paste SHA-256 hash published by admin..."
+            style="width:100%;background:var(--gray-50);border:1.5px solid var(--gray-200);border-radius:10px;font-family:'DM Mono',monospace;font-size:12px;color:var(--gray-900);padding:10px 14px;outline:none;margin-bottom:8px;" />
+          <button onclick="verifyHash()"
+            style="width:100%;background:white;border:1.5px solid var(--green-400);border-radius:9px;color:var(--green-700);font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:13px;padding:9px;cursor:pointer;">
+            ✓ Verify Hash
+          </button>
+          <div id="hashResult" style="margin-top:10px;display:none;"></div>
+          <div style="margin-top:8px;font-size:11px;color:var(--gray-400);line-height:1.6;">
+            Sheet hash: <span id="fileHashDisplay" style="font-family:'DM Mono',monospace;word-break:break-all;color:var(--gray-600)">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="card">
+      <div class="card-header">
+        <div class="step-num">2</div>
+        <div>
+          <div class="card-title">Draw Settings</div>
+          <div class="card-sub">Block hash is the public random seed</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="field">
+          <label>Block Hash (random seed)</label>
+          <input type="text" id="blockHash" placeholder="0xabc123...def456" oninput="updateAlgo()" />
+          <div class="hint">bscscan.com → search block number → copy "Hash"</div>
+        </div>
+        <div class="field">
+          <label>Block Number</label>
+          <input type="number" id="blockNumber" placeholder="e.g. 38500000" />
+        </div>
+        <div class="field">
+          <label>Number of Winners</label>
+          <input type="number" id="numWinners" value="5" min="1" max="100" oninput="updateAlgo()" />
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Config card -->
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">Configuration</span>
+  <!-- Algorithm box -->
+  <div class="algo-card">
+    <div class="algo-header">
+      <div class="algo-header-dot"></div>
+      <div class="algo-title">Public Algorithm — Anyone Can Verify This Draw</div>
     </div>
-    <div class="card-body">
-      <div class="cfg-grid">
-        <div class="field cfg-full">
-          <label>Moralis API Key (free at moralis.io)</label>
-          <input type="text" id="apiKey" placeholder="Paste your Moralis API Key here..." />
-          <div style="margin-top:6px;font-size:11px;color:var(--text3)">
-            Free tier: 40,000 requests/month · No credit card · Sign up at moralis.io
-          </div>
-        </div>
-        <div class="field">
-          <label>Admin Wallet (receives GRBE)</label>
-          <input type="text" id="adminWallet" value="0x4D031E922792B46C9ddfDa923c246656CAC317cA" readonly />
-        </div>
-        <div class="field">
-          <label>GRBE Token Contract</label>
-          <input type="text" id="grbeContract" value="0x5Ca4e7294B14EA5745EE2A688990e0cb68503219" readonly />
-        </div>
-        <div class="field">
-          <label>NFT Tree Contract</label>
-          <input type="text" id="nftContract" value="0x0D56354B247a6e1b0b0190476198E95Ad13d77a4" readonly />
-        </div>
-        <div class="field">
-          <label>Rows per page</label>
-          <input type="number" id="pageSize" value="50" min="10" max="200" />
-        </div>
-        <div class="cfg-full">
-          <button class="btn-run" id="btnRun" onclick="runScan()">
-            ▶ &nbsp; Start Scan
-          </button>
-        </div>
-      </div>
+    <div class="algo-body">
+<span class="c-comment">// Fisher-Yates shuffle — deterministic, tamper-proof</span>
+<span class="c-comment">// Same block hash + same CSV → always same winners</span>
+
+<span class="c-key">seed</span>    = <span class="c-val" id="ap-hash">"[paste block hash above]"</span>
+<span class="c-key">pool</span>    = <span class="c-white">[all NFT IDs from CSV]</span>   <span class="c-comment">// <span id="ap-count">0</span> entries loaded</span>
+<span class="c-key">winners</span> = <span class="c-white">[]</span>
+
+<span class="c-fn">for</span> <span class="c-white">i</span> <span class="c-fn">in</span> <span class="c-fn">range</span>(<span class="c-num" id="ap-num">5</span>):
+    rand_i  = <span class="c-fn">keccak256</span>( seed + i )
+    j       = i + ( rand_i % (N - i) )
+    <span class="c-fn">swap</span>( pool[i], pool[j] )
+    winners.<span class="c-fn">push</span>( pool[i] )
     </div>
   </div>
 
   <!-- Error -->
   <div class="error-box" id="errorBox"></div>
 
-  <!-- Progress -->
-  <div class="card progress-card" id="progressCard">
-    <div class="card-body">
-      <div class="progress-top">
-        <span id="progressLabel">Starting...</span>
-        <span id="progressPct" style="font-family:'DM Mono',monospace;font-weight:500">0%</span>
-      </div>
-      <div class="progress-track">
-        <div class="progress-fill" id="progressFill" style="width:0%"></div>
-      </div>
-    </div>
-  </div>
+  <!-- Draw button -->
+  <button class="btn-draw" id="btnDraw" onclick="runDraw()">
+    🎲 &nbsp; Draw Lucky Holders Now
+  </button>
 
-  <!-- Log -->
-  <div class="card log-card" id="logCard">
-    <div class="card-header">
-      <span class="card-title">Activity Log</span>
-    </div>
-    <div class="log-body" id="logBody"></div>
-  </div>
-
-  <!-- Stats -->
-  <div class="stats" id="statsRow">
-    <div class="stat-card">
-      <div class="stat-val" id="s1">0</div>
-      <div class="stat-lbl">Wallets sent GRBE</div>
-    </div>
-    <div class="stat-card green">
-      <div class="stat-val" id="s2">0</div>
-      <div class="stat-lbl">Wallets with NFT</div>
-    </div>
-    <div class="stat-card amber">
-      <div class="stat-val" id="s3">0</div>
-      <div class="stat-lbl">Total NFT IDs</div>
-    </div>
-    <div class="stat-card blue">
-      <div class="stat-val" id="s4">0</div>
-      <div class="stat-lbl">Lottery Tickets</div>
-    </div>
-  </div>
-
-  <!-- Table -->
-  <div class="card table-card" id="tableCard">
-    <div class="card-header">
-      <span class="card-title">Lottery Entries</span>
-      <div class="export-btns">
-        <button class="btn-sm btn-outline" onclick="exportCSV()">↓ Export CSV</button>
-        <button class="btn-sm btn-primary" onclick="copyForLottery()">⧉ Copy NFT IDs</button>
+  <!-- Results -->
+  <div class="results" id="results">
+    <div class="results-top">
+      <div class="results-title-wrap">
+        <h2>🏆 Lucky Holders Announced!</h2>
+        <p id="resultsSub"></p>
       </div>
+      <div class="verified-pill">✓ Cryptographically Verified</div>
     </div>
-    <div class="search-row">
-      <input type="text" id="searchInput" placeholder="Search by NFT ID or wallet address..." oninput="filterTable()" />
-    </div>
-    <div style="overflow-x:auto">
-      <table>
-        <thead>
-          <tr>
-            <th style="width:48px">#</th>
-            <th onclick="sortTable('nftId')">NFT ID ↕</th>
-            <th onclick="sortTable('wallet')">Wallet Address ↕</th>
-            <th style="width:80px">View</th>
-            <th style="width:80px">Copy</th>
-          </tr>
-        </thead>
-        <tbody id="tableBody"></tbody>
-      </table>
-    </div>
-    <div class="pg-row">
-      <span class="pg-info" id="pgInfo"></span>
-      <div class="pg-btns" id="pgBtns"></div>
+
+    <div class="seed-card" id="seedCard"></div>
+    <div class="winners-list" id="winnersList"></div>
+
+    <div class="export-bar">
+      <button class="btn-export btn-filled" onclick="exportCSV()">↓ Export Winners CSV</button>
+      <button class="btn-export btn-outline" onclick="copyWallets()">⧉ Copy Wallet Addresses</button>
+      <button class="btn-export btn-outline" onclick="window.print()">⎙ Print / Save PDF</button>
     </div>
   </div>
 
 </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.9.0/ethers.umd.min.js"></script>
 <script>
-const ADMIN_WALLET  = "0x4D031E922792B46C9ddfDa923c246656CAC317cA";
-const GRBE_CONTRACT = "0x5Ca4e7294B14EA5745EE2A688990e0cb68503219";
-const NFT_CONTRACT  = "0x0D56354B247a6e1b0b0190476198E95Ad13d77a4";
-const MORALIS_BASE  = "https://deep-index.moralis.io/api/v2.2";
+let csvRows = [], lastWinners = [];
 
-let allRows = [], filtered = [], currentPage = 1, pageSize = 50;
-let sortKey = 'nftId', sortAsc = true;
+// ── Load from Google Sheet ───────────────────────────────────────────────────
+async function loadSheet() {
+  const raw = document.getElementById('sheetUrl').value.trim();
+  if (!raw) return showError('Please paste a Google Sheet URL.');
 
-function log(msg, type = '') {
-  const b = document.getElementById('logBody');
-  document.getElementById('logCard').style.display = 'block';
-  const d = document.createElement('div');
-  d.className = 'log-line ' + type;
-  const ts = new Date().toLocaleTimeString('en', { hour12: false });
-  d.textContent = `[${ts}] ${msg}`;
-  b.appendChild(d);
-  b.scrollTop = b.scrollHeight;
-}
-function setProgress(label, pct) {
-  document.getElementById('progressCard').style.display = 'block';
-  document.getElementById('progressLabel').textContent = label;
-  document.getElementById('progressPct').textContent = Math.round(pct) + '%';
-  document.getElementById('progressFill').style.width = pct + '%';
-}
-function showError(msg) {
-  const b = document.getElementById('errorBox');
-  b.textContent = '⚠ ' + msg;
-  b.style.display = 'block';
-}
+  // Convert any Google Sheet URL to CSV export URL
+  let csvUrl = '';
+  const btn  = document.getElementById('btnLoad');
 
-// ── Moralis API call ─────────────────────────────────────────────────────────
-async function moralis(path, apiKey, params = {}) {
-  const url = MORALIS_BASE + path + '?' + new URLSearchParams({ chain: '0x38', ...params });
-  const res  = await fetch(url, { headers: { 'X-API-Key': apiKey } });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `HTTP ${res.status}`);
-  }
-  return res.json();
-}
+  // Format 1: already a publish CSV link
+  // Format 2: normal sheet URL → convert to CSV export
+  const idMatch = raw.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  if (!idMatch) return showError('Invalid Google Sheet URL. Please use the "Publish to web" CSV link.');
 
-// ── Get ALL pages from Moralis (handles cursor pagination) ───────────────────
-async function moralisAllPages(path, apiKey, params = {}, onPage) {
-  let cursor = null, page = 0, allResults = [];
-  do {
-    const p = cursor ? { ...params, cursor } : params;
-    const data = await moralis(path, apiKey, p);
-    const items = data.result || [];
-    allResults.push(...items);
-    cursor = data.cursor || null;
-    page++;
-    if (onPage) onPage(page, allResults.length);
-    await new Promise(r => setTimeout(r, 150));
-  } while (cursor);
-  return allResults;
-}
+  const sheetId = idMatch[1];
+  // Get gid if present
+  const gidMatch = raw.match(/[#&?]gid=(\d+)/);
+  const gid = gidMatch ? gidMatch[1] : '0';
 
-// ── Step 1: Get wallets that sent >= 1 GRBE to admin ────────────────────────
-// Query thẳng lịch sử token transfers của ví admin — nhanh hơn nhiều
-async function getActiveWallets(apiKey) {
-  log('Fetching incoming GRBE transfers of admin wallet...');
-  setProgress('Reading admin wallet transfers...', 10);
+  csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
 
-  const txs = await moralisAllPages(
-    `/${ADMIN_WALLET}/erc20/transfers`,
-    apiKey,
-    { limit: 100, contract_addresses: [GRBE_CONTRACT] },
-    (page, total) => {
-      setProgress(`Reading admin wallet... (${total} txs so far)`, 10 + page * 3);
-      log(`Page ${page}: ${total} transfers fetched`);
-    }
-  );
-
-  const ONE_GRBE = BigInt("1000000000000000000");
-  const walletSet = new Set();
-  for (const tx of txs) {
-    // Chỉ lấy tx GỬI VÀO admin (to = admin)
-    if (tx.to_address.toLowerCase() !== ADMIN_WALLET.toLowerCase()) continue;
-    try {
-      if (BigInt(tx.value) >= ONE_GRBE) {
-        walletSet.add(tx.from_address.toLowerCase());
-      }
-    } catch {}
-  }
-
-  log(`Found ${walletSet.size} unique wallets that sent ≥ 1 GRBE`, 'ok');
-  return [...walletSet];
-}
-
-// ── Step 2: Get NFT IDs held by a wallet ────────────────────────────────────
-async function getNftIdsForWallet(wallet, apiKey) {
-  const data = await moralis(
-    `/${wallet}/nft`,
-    apiKey,
-    { token_addresses: NFT_CONTRACT, limit: 100 }
-  );
-  return (data.result || []).map(n => n.token_id);
-}
-
-// ── Main scan ────────────────────────────────────────────────────────────────
-async function runScan() {
-  const apiKey = document.getElementById('apiKey').value.trim();
-  if (!apiKey) { showError('Please enter your Moralis API Key.'); return; }
-
-  document.getElementById('errorBox').style.display  = 'none';
-  document.getElementById('logBody').innerHTML        = '';
-  document.getElementById('statsRow').style.display  = 'none';
-  document.getElementById('tableCard').style.display = 'none';
-  allRows = []; filtered = [];
-  pageSize = parseInt(document.getElementById('pageSize').value) || 50;
-
-  const btn = document.getElementById('btnRun');
+  btn.textContent = 'Loading...';
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Scanning...';
 
   try {
-    const wallets = await getActiveWallets(apiKey);
-    if (!wallets.length) { log('No wallets found that sent GRBE.', 'warn'); return; }
-    document.getElementById('s1').textContent = wallets.length;
-
-    log(`Checking NFT Tree holdings for ${wallets.length} wallets...`);
-    let walletsWithNft = 0;
-
-    for (let i = 0; i < wallets.length; i++) {
-      const wallet = wallets[i];
-      setProgress(`Checking wallet ${i + 1} / ${wallets.length}`, 40 + (i / wallets.length) * 55);
-
-      try {
-        const ids = await getNftIdsForWallet(wallet, apiKey);
-        if (ids.length > 0) {
-          walletsWithNft++;
-          log(`${wallet.slice(0,10)}...${wallet.slice(-6)} → ${ids.length} NFT(s): [${ids.slice(0,3).join(', ')}${ids.length > 3 ? '...' : ''}]`, 'ok');
-          ids.forEach(id => allRows.push({ nftId: id, wallet }));
-          document.getElementById('s2').textContent = walletsWithNft;
-          document.getElementById('s3').textContent = allRows.length;
-          document.getElementById('s4').textContent = allRows.length;
-        }
-      } catch(e) {
-        log(`Could not check ${wallet.slice(0,10)}: ${e.message}`, 'warn');
-      }
-      await new Promise(r => setTimeout(r, 150));
-    }
-
-    setProgress('Complete!', 100);
-    log(`─── Done: ${walletsWithNft} wallets with NFT Tree · ${allRows.length} total tickets ───`, 'ok');
-    document.getElementById('statsRow').style.display = 'grid';
-    filtered = [...allRows];
-    renderTable();
-
+    const res = await fetch(csvUrl);
+    if (!res.ok) throw new Error('Could not fetch sheet. Make sure it is published to web.');
+    const text = await res.text();
+    await parseCSV(text, 'Google Sheet');
   } catch(e) {
-    showError('Error: ' + e.message);
-    log('Error: ' + e.message, 'err');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '↺ &nbsp; Run Again';
+    showError('Failed to load sheet: ' + e.message + '. Make sure the sheet is published: File → Share → Publish to web.');
+  }
+
+  btn.textContent = 'Load Participant List';
+  btn.disabled = false;
+}
+
+async function parseCSV(text, filename) {
+  const lines = text.trim().split('\n');
+  const parsed = [];
+  for (let i = 0; i < lines.length; i++) {
+    const cols = lines[i].split(',').map(c => c.trim().replace(/"/g,''));
+    if (i === 0 && isNaN(cols[0])) continue;
+    if (cols.length < 3) continue;
+    const nftId = cols[1], wallet = cols[2];
+    if (!nftId || !wallet || !wallet.startsWith('0x')) continue;
+    parsed.push({ nftId, wallet });
+  }
+  if (!parsed.length) return showError('Could not parse CSV. Format must be: No,NFT_ID,WALLET');
+  csvRows = parsed;
+  const ok = document.getElementById('uploadOk');
+  ok.style.display = 'block';
+  ok.innerHTML = `✅ &nbsp;<b>${parsed.length.toLocaleString()} entries</b> loaded from ${filename}`;
+  document.getElementById('errorBox').style.display = 'none';
+  document.getElementById('ap-count').textContent = parsed.length.toLocaleString();
+
+  // Calculate hash and show verify box
+  window._fileHash = await sha256(text);
+  document.getElementById('fileHashDisplay').textContent = window._fileHash;
+  document.getElementById('hashVerifyBox').style.display = 'block';
+  document.getElementById('hashResult').style.display = 'none';
+}
+
+async function sha256(text) {
+  const buf    = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function verifyHash() {
+  const expected = document.getElementById('expectedHash').value.trim().toLowerCase();
+  const actual   = window._fileHash;
+  const box      = document.getElementById('hashResult');
+  box.style.display = 'block';
+
+  if (!expected) {
+    box.innerHTML = '<span style="color:#d97706;font-size:12px;">⚠ Please paste the hash published by admin first.</span>';
+    return;
+  }
+  if (!actual) {
+    box.innerHTML = '<span style="color:#dc2626;font-size:12px;">⚠ No file loaded yet.</span>';
+    return;
+  }
+  if (expected === actual) {
+    box.innerHTML = `<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:12px 14px;font-size:13px;font-weight:600;color:#16a34a;">
+      ✅ Hash matches! This file has NOT been modified.
+    </div>`;
+  } else {
+    box.innerHTML = `<div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:8px;padding:12px 14px;font-size:13px;font-weight:600;color:#dc2626;">
+      ❌ Hash mismatch! This file may have been modified.<br>
+      <span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:400;word-break:break-all;margin-top:6px;display:block;">
+        Expected: ${expected}<br>Actual: ${actual}
+      </span>
+    </div>`;
   }
 }
 
-function toggleCustomBlock() {}
-
-function renderTable() {
-  const tbody = document.getElementById('tableBody');
-  const total = filtered.length, pages = Math.ceil(total / pageSize);
-  if (currentPage > pages) currentPage = 1;
-  const start = (currentPage - 1) * pageSize;
-  const slice = filtered.slice(start, start + pageSize);
-
-  tbody.innerHTML = slice.map((row, i) => `
-    <tr>
-      <td style="color:var(--text3);font-family:'DM Mono',monospace;font-size:11px">${start + i + 1}</td>
-      <td><span class="nft-pill">#${row.nftId}</span></td>
-      <td class="wallet-mono">
-        <span class="wallet-full">${row.wallet}</span>
-        <span class="wallet-short">${row.wallet.slice(0,8)}...${row.wallet.slice(-6)}</span>
-      </td>
-      <td>
-        <a class="link-icon" href="https://bscscan.com/token/${NFT_CONTRACT}?a=${row.wallet}" target="_blank" title="View on BSCScan">↗</a>
-      </td>
-      <td>
-        <button class="btn-copy" onclick="copyText('${row.wallet}',this)">Copy</button>
-      </td>
-    </tr>`).join('');
-
-  document.getElementById('tableCard').style.display = 'block';
-  document.getElementById('pgInfo').textContent = `${filtered.length} entries · page ${currentPage} of ${pages || 1}`;
-  renderPagination(pages);
+// ── Update algo preview ──────────────────────────────────────────────────────
+function updateAlgo() {
+  const h = document.getElementById('blockHash').value.trim();
+  const n = document.getElementById('numWinners').value || '5';
+  document.getElementById('ap-hash').textContent = h ? `"${h.slice(0,20)}..."` : '"[paste block hash above]"';
+  document.getElementById('ap-num').textContent  = n;
 }
 
-function renderPagination(pages) {
-  const c = document.getElementById('pgBtns');
-  if (pages <= 1) { c.innerHTML = ''; return; }
-  let h = `<button class="pg-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>`;
-  for (let i = 1; i <= pages; i++) {
-    if (i===1||i===pages||Math.abs(i-currentPage)<=1)
-      h += `<button class="pg-btn ${i===currentPage?'active':''}" onclick="goPage(${i})">${i}</button>`;
-    else if (Math.abs(i-currentPage)===2) h += `<span style="padding:0 4px;color:var(--text3)">…</span>`;
+// ── Fisher-Yates + keccak256 ─────────────────────────────────────────────────
+async function pickWinners(blockHash, pool, num) {
+  const arr = [...pool];
+  const n   = arr.length;
+  for (let i = 0; i < num; i++) {
+    const encoded = ethers.solidityPacked(['bytes32','uint256'], [blockHash, i]);
+    const rand    = BigInt(ethers.keccak256(encoded));
+    const j       = Number(rand % BigInt(n - i)) + i;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
   }
-  h += `<button class="pg-btn" onclick="goPage(${currentPage+1})" ${currentPage===pages?'disabled':''}>›</button>`;
-  c.innerHTML = h;
+  return arr.slice(0, num);
 }
 
-function goPage(p) {
-  const pages = Math.ceil(filtered.length / pageSize);
-  if (p < 1 || p > pages) return;
-  currentPage = p; renderTable();
+// ── Run draw ─────────────────────────────────────────────────────────────────
+async function runDraw() {
+  document.getElementById('errorBox').style.display = 'none';
+  document.getElementById('results').style.display  = 'none';
+
+  const blockHash  = document.getElementById('blockHash').value.trim();
+  const blockNum   = document.getElementById('blockNumber').value.trim();
+  const numWinners = parseInt(document.getElementById('numWinners').value) || 5;
+
+  if (!blockHash.match(/^0x[0-9a-fA-F]{64}$/))
+    return showError('Block Hash must start with 0x and be exactly 64 hex characters.');
+  if (!csvRows.length)
+    return showError('Please upload a CSV file first.');
+  if (csvRows.length < numWinners)
+    return showError(`Need at least ${numWinners} entries. CSV only has ${csvRows.length}.`);
+
+  const btn = document.getElementById('btnDraw');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Drawing winners...';
+
+  try {
+    const winners = await pickWinners(blockHash, csvRows, numWinners);
+    lastWinners   = winners;
+    renderResults(winners, blockHash, blockNum, numWinners);
+  } catch(e) { showError('Error: ' + e.message); }
+
+  btn.disabled = false;
+  btn.innerHTML = '↺ &nbsp; Draw Again';
 }
 
-function filterTable() {
-  const q = document.getElementById('searchInput').value.toLowerCase();
-  filtered = allRows.filter(r => r.nftId.toLowerCase().includes(q) || r.wallet.toLowerCase().includes(q));
-  currentPage = 1; renderTable();
+// ── Render results ────────────────────────────────────────────────────────────
+function renderResults(winners, blockHash, blockNum, num) {
+  const medals = ['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
+
+  document.getElementById('resultsSub').textContent =
+    `${num} winner${num>1?'s':''} · Block #${blockNum||'?'} · ${csvRows.length.toLocaleString()} total entries`;
+
+  document.getElementById('seedCard').innerHTML =
+    `<div class="seed-row"><span class="seed-key">Block Number</span><span class="seed-val">#${blockNum||'—'}</span></div>
+     <div class="seed-row"><span class="seed-key">Block Hash</span><span class="seed-val">${blockHash}</span></div>
+     <div class="seed-row"><span class="seed-key">Total Entries</span><span class="seed-val">${csvRows.length.toLocaleString()} NFT IDs</span></div>
+     <div class="seed-row"><span class="seed-key">Winners</span><span class="seed-val">${num}</span></div>`;
+
+  document.getElementById('winnersList').innerHTML = winners.map((row, i) => `
+    <div class="winner-card">
+      <div class="w-rank">${medals[i]||i+1}</div>
+      <div class="w-body">
+        <div class="w-nft">NFT <em>#${row.nftId}</em></div>
+        <div class="w-wallet">
+          <a href="https://bscscan.com/address/${row.wallet}" target="_blank">${row.wallet}</a>
+        </div>
+      </div>
+      <div class="w-actions">
+        <button class="btn-sm" onclick="copyText('${row.wallet}',this)">Copy wallet</button>
+        <button class="btn-sm" onclick="copyText('${row.nftId}',this)">Copy ID</button>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('results').scrollIntoView({ behavior:'smooth' });
 }
 
-function sortTable(key) {
-  if (sortKey === key) sortAsc = !sortAsc; else { sortKey = key; sortAsc = true; }
-  filtered.sort((a, b) => {
-    const va = key==='nftId' ? Number(a[key]) : a[key];
-    const vb = key==='nftId' ? Number(b[key]) : b[key];
-    return sortAsc ? (va>vb?1:-1) : (va<vb?1:-1);
-  });
-  renderTable();
+function showError(msg) {
+  const b = document.getElementById('errorBox');
+  b.textContent = '⚠ ' + msg; b.style.display = 'block';
 }
-
-function copyForLottery() {
-  navigator.clipboard.writeText(allRows.map(r => r.nftId).join('\n'));
-  alert(`✓ Copied ${allRows.length} NFT IDs!\nPaste into the NFT IDs field in lottery-verify.html`);
-}
-
-function exportCSV() {
-  const csv  = 'No,NFT_ID,WALLET\n' + allRows.map((r,i)=>`${i+1},${r.nftId},${r.wallet}`).join('\n');
-  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
-  const a    = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `nft-lottery-${Date.now()}.csv` });
-  a.click(); URL.revokeObjectURL(a.href);
-}
-
 function copyText(text, btn) {
   navigator.clipboard.writeText(text);
   const o = btn.textContent; btn.textContent = 'Copied!';
   setTimeout(() => btn.textContent = o, 1500);
 }
-
-
+function copyWallets() {
+  navigator.clipboard.writeText(lastWinners.map(w=>w.wallet).join('\n'));
+  alert(`✓ Copied ${lastWinners.length} wallet addresses!`);
+}
+function exportCSV() {
+  const blob = new Blob(['Rank,NFT_ID,WALLET\n' + lastWinners.map((w,i)=>`${i+1},${w.nftId},${w.wallet}`).join('\n')], {type:'text/csv'});
+  const a = Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:`winners-${Date.now()}.csv`});
+  a.click(); URL.revokeObjectURL(a.href);
+}
 </script>
 </body>
 </html>
