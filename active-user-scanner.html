@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NFT Tree — Active User Scanner</title>
+<title>Active NFT Tree Holder Scanner</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -333,7 +333,7 @@ tr:hover td { background: var(--surface2); }
       <div class="logo-group">
         <div class="logo-icon">🌳</div>
         <div class="logo-text">
-          <h1>NFT Tree Lottery</h1>
+          <h1>Active NFT Tree Holder Scanner</h1>
           <p>Active User Scanner — BSC Mainnet</p>
         </div>
       </div>
@@ -423,17 +423,17 @@ tr:hover td { background: var(--surface2); }
     </div>
     <div class="stat-card blue">
       <div class="stat-val" id="s4">0</div>
-      <div class="stat-lbl">Lottery Tickets</div>
+      <div class="stat-lbl">Lucky Tickets</div>
     </div>
   </div>
 
   <!-- Table -->
   <div class="card table-card" id="tableCard">
     <div class="card-header">
-      <span class="card-title">Lottery Entries</span>
+      <span class="card-title">Lucky Entries</span>
       <div class="export-btns">
         <button class="btn-sm btn-outline" onclick="exportCSV()">↓ Export CSV</button>
-        <button class="btn-sm btn-primary" onclick="copyForLottery()">⧉ Copy NFT IDs</button>
+        <button class="btn-sm btn-primary" onclick="copyForDraw()">⧉ Copy NFT IDs</button>
       </div>
     </div>
     <div class="search-row">
@@ -701,15 +701,15 @@ function sortTable(key) {
   renderTable();
 }
 
-function copyForLottery() {
+function copyForDraw() {
   navigator.clipboard.writeText(allRows.map(r => r.nftId).join('\n'));
-  alert(`✓ Copied ${allRows.length} NFT IDs!\nPaste into the NFT IDs field in lottery-verify.html`);
+  alert(`✓ Copied ${allRows.length} NFT IDs!\nPaste into the NFT IDs field in Lucky Holder Draw`);
 }
 
 async function exportCSV() {
   const csv  = 'No,NFT_ID,WALLET\n' + allRows.map((r,i)=>`${i+1},${r.nftId},${r.wallet}`).join('\n');
   const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
-  const a    = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `nft-lottery-${Date.now()}.csv` });
+  const a    = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `active-trees-${Date.now()}.csv` });
   a.click(); URL.revokeObjectURL(a.href);
 
   // Calculate and show SHA-256 hash
