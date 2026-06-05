@@ -596,9 +596,67 @@ async function loadSheet() {
   const gidMatch = raw.match(/[#&?]gid=(\d+)/);
   const gid = gidMatch ? gidMatch[1] : '0';
 
+<<<<<<< HEAD
   csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
 
   btn.textContent = 'Loading...';
+=======
+// ── Step 1: Get wallets that sent >= 1 GRBE to admin ────────────────────────
+// Query thẳng lịch sử token transfers của ví admin — nhanh hơn nhiều
+async function getActiveWallets(apiKey) {
+  log('Fetching incoming GRBE transfers of admin wallet...');
+  setProgress('Reading admin wallet transfers...', 10);
+
+  const txs = await moralisAllPages(
+    `/${ADMIN_WALLET}/erc20/transfers`,
+    apiKey,
+    { limit: 100, contract_addresses: [GRBE_CONTRACT] },
+    (page, total) => {
+      setProgress(`Reading admin wallet... (${total} txs so far)`, 10 + page * 3);
+      log(`Page ${page}: ${total} transfers fetched`);
+    }
+  );
+
+  const ONE_GRBE = BigInt("1000000000000000000");
+  const walletSet = new Set();
+  for (const tx of txs) {
+    // Chỉ lấy tx GỬI VÀO admin (to = admin)
+    if (tx.to_address.toLowerCase() !== ADMIN_WALLET.toLowerCase()) continue;
+    try {
+      if (BigInt(tx.value) >= ONE_GRBE) {
+        walletSet.add(tx.from_address.toLowerCase());
+      }
+    } catch {}
+  }
+
+  log(`Found ${walletSet.size} unique wallets that sent ≥ 1 GRBE`, 'ok');
+  return [...walletSet];
+}
+
+// ── Step 2: Get NFT IDs held by a wallet ────────────────────────────────────
+async function getNftIdsForWallet(wallet, apiKey) {
+  const data = await moralis(
+    `/${wallet}/nft`,
+    apiKey,
+    { token_addresses: NFT_CONTRACT, limit: 100 }
+  );
+  return (data.result || []).map(n => n.token_id);
+}
+
+// ── Main scan ────────────────────────────────────────────────────────────────
+async function runScan() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) { showError('Please enter your Moralis API Key.'); return; }
+
+  document.getElementById('errorBox').style.display  = 'none';
+  document.getElementById('logBody').innerHTML        = '';
+  document.getElementById('statsRow').style.display  = 'none';
+  document.getElementById('tableCard').style.display = 'none';
+  allRows = []; filtered = [];
+  pageSize = parseInt(document.getElementById('pageSize').value) || 50;
+
+  const btn = document.getElementById('btnRun');
+>>>>>>> a344e43e91a3cc2662527bc6b03eeb51eebdfe74
   btn.disabled = true;
 
   try {
