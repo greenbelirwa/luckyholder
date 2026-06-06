@@ -536,11 +536,32 @@ body::after {
 <span class="c-key">winners</span> = <span class="c-white">[]</span>
 
 <span class="c-fn">for</span> <span class="c-white">i</span> <span class="c-fn">in</span> <span class="c-fn">range</span>(<span class="c-num" id="ap-num">5</span>):
-    rand_i  = <span class="c-fn">keccak256</span>( seed + i )
+    <span class="c-comment">// ⚠ Encoding: seed = bytes32, i = uint256 (32 bytes big-endian)</span>
+    rand_i  = <span class="c-fn">keccak256</span>( abi.encodePacked(bytes32(seed), uint256(i)) )
     j       = i + ( rand_i % (N - i) )
     <span class="c-fn">swap</span>( pool[i], pool[j] )
     winners.<span class="c-fn">push</span>( pool[i] )
+
+<span class="c-comment">// ─────────────────────────────────────────────────────</span>
+<span class="c-comment">// Want to verify yourself? Download the ready-to-run</span>
+<span class="c-comment">// Node.js script: verify-draw.js (link below)</span>
+<span class="c-comment">// No packages needed · Works on Windows & Mac</span>
+<span class="c-comment">// ─────────────────────────────────────────────────────</span>
     </div>
+  </div>
+
+  <!-- Verify script download -->
+  <div style="text-align:center;margin-bottom:24px;">
+    <a href="https://greenbelirwa.github.io/luckyholder/verify-draw.js" download
+      style="display:inline-flex;align-items:center;gap:8px;
+             background:white;border:1.5px solid var(--green-300);
+             border-radius:9px;padding:10px 22px;
+             font-size:13px;font-weight:600;color:var(--green-700);
+             text-decoration:none;transition:all 0.15s;
+             box-shadow:0 2px 8px rgba(34,197,94,0.12);">
+      ↓ Download verify-draw.js
+      <span style="font-size:11px;color:var(--gray-400);font-weight:400;">· Run locally with Node.js</span>
+    </a>
   </div>
 
   <!-- Error -->
