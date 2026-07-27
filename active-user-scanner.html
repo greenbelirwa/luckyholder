@@ -552,29 +552,36 @@ async function getActiveWallets(apiKey) {
   );
 
   const ONE_GRBE = BigInt("1000000000000000000");
-  const walletSet = new Set();
+  const totalsByWallet = new Map();
   for (const tx of txs) {
     // Chỉ lấy tx GỬI VÀO admin (to = admin)
     if (tx.to_address.toLowerCase() !== ADMIN_WALLET.toLowerCase()) continue;
     try {
-      if (BigInt(tx.value) >= ONE_GRBE) {
-        walletSet.add(tx.from_address.toLowerCase());
-      }
+      const from = tx.from_address.toLowerCase();
+      const prev = totalsByWallet.get(from) || 0n;
+      totalsByWallet.set(from, prev + BigInt(tx.value));
     } catch {}
   }
 
-  log(`Found ${walletSet.size} unique wallets that sent ≥ 1 GRBE`, 'ok');
+  // So sánh TỔNG các lần chuyển của mỗi ví với ngưỡng (không phải từng tx riêng lẻ),
+  // để không bỏ sót ví chia nhỏ nhiều lần chuyển (vd 2 lần) nhưng tổng vẫn >= 1 GRBE
+  const walletSet = new Set();
+  for (const [wallet, total] of totalsByWallet) {
+    if (total >= ONE_GRBE) walletSet.add(wallet);
+  }
+
+  log(`Found ${walletSet.size} unique wallets that sent ≥ 1 GRBE (total)`, 'ok');
   return [...walletSet];
 }
 
 // ── Step 2: Get NFT IDs held by a wallet ────────────────────────────────────
 async function getNftIdsForWallet(wallet, apiKey) {
-  const data = await moralis(
+  const items = await moralisAllPages(
     `/${wallet}/nft`,
     apiKey,
     { token_addresses: NFT_CONTRACT, limit: 100 }
   );
-  return (data.result || []).map(n => n.token_id);
+  return items.map(n => n.token_id);
 }
 
 // ── Main scan ────────────────────────────────────────────────────────────────
