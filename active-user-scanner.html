@@ -569,12 +569,12 @@ async function getActiveWallets(apiKey) {
 
 // ── Step 2: Get NFT IDs held by a wallet ────────────────────────────────────
 async function getNftIdsForWallet(wallet, apiKey) {
-  const data = await moralis(
+  const items = await moralisAllPages(
     `/${wallet}/nft`,
     apiKey,
     { token_addresses: NFT_CONTRACT, limit: 100 }
   );
-  return (data.result || []).map(n => n.token_id);
+  return items.map(n => n.token_id);
 }
 
 // ── Main scan ────────────────────────────────────────────────────────────────
