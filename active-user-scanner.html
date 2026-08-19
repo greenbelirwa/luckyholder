@@ -552,36 +552,29 @@ async function getActiveWallets(apiKey) {
   );
 
   const ONE_GRBE = BigInt("1000000000000000000");
-  const totalsByWallet = new Map();
+  const walletSet = new Set();
   for (const tx of txs) {
     // Chỉ lấy tx GỬI VÀO admin (to = admin)
     if (tx.to_address.toLowerCase() !== ADMIN_WALLET.toLowerCase()) continue;
     try {
-      const from = tx.from_address.toLowerCase();
-      const prev = totalsByWallet.get(from) || 0n;
-      totalsByWallet.set(from, prev + BigInt(tx.value));
+      if (BigInt(tx.value) >= ONE_GRBE) {
+        walletSet.add(tx.from_address.toLowerCase());
+      }
     } catch {}
   }
 
-  // So sánh TỔNG các lần chuyển của mỗi ví với ngưỡng (không phải từng tx riêng lẻ),
-  // để không bỏ sót ví chia nhỏ nhiều lần chuyển (vd 2 lần) nhưng tổng vẫn >= 1 GRBE
-  const walletSet = new Set();
-  for (const [wallet, total] of totalsByWallet) {
-    if (total >= ONE_GRBE) walletSet.add(wallet);
-  }
-
-  log(`Found ${walletSet.size} unique wallets that sent ≥ 1 GRBE (total)`, 'ok');
+  log(`Found ${walletSet.size} unique wallets that sent ≥ 1 GRBE`, 'ok');
   return [...walletSet];
 }
 
 // ── Step 2: Get NFT IDs held by a wallet ────────────────────────────────────
 async function getNftIdsForWallet(wallet, apiKey) {
-  const items = await moralisAllPages(
+  const data = await moralis(
     `/${wallet}/nft`,
     apiKey,
     { token_addresses: NFT_CONTRACT, limit: 100 }
   );
-  return items.map(n => n.token_id);
+  return (data.result || []).map(n => n.token_id);
 }
 
 // ── Main scan ────────────────────────────────────────────────────────────────
@@ -630,6 +623,12 @@ async function runScan() {
 
     setProgress('Complete!', 100);
     log(`─── Done: ${walletsWithNft} wallets with NFT Tree · ${allRows.length} total tickets ───`, 'ok');
+
+    // Interleave rows so that NFTs from the same wallet are spread apart
+    // (prevents multiple NFTs of one wallet from sitting next to each other)
+    allRows = interleaveByWallet(allRows);
+    log('Interleaved list: NFTs from the same wallet are now spread apart.', 'ok');
+
     document.getElementById('statsRow').style.display = 'grid';
     filtered = [...allRows];
     renderTable();
@@ -644,6 +643,41 @@ async function runScan() {
 }
 
 function toggleCustomBlock() {}
+
+// ── Interleave NFTs by wallet (round-robin) ──────────────────────────────────
+// Groups rows by wallet (preserving first-seen wallet order), then takes
+// one NFT from each wallet in turn until all are placed. This ensures NFTs
+// belonging to the same wallet are never adjacent in the final list, while
+// staying fully deterministic — same scan result always produces the same
+// interleaved order, so anyone can verify it.
+function interleaveByWallet(rows) {
+  const walletOrder = [];       // first-seen order of wallets
+  const groups = new Map();     // wallet -> [nftId, nftId, ...]
+
+  for (const row of rows) {
+    if (!groups.has(row.wallet)) {
+      groups.set(row.wallet, []);
+      walletOrder.push(row.wallet);
+    }
+    groups.get(row.wallet).push(row.nftId);
+  }
+
+  const result = [];
+  let remaining = rows.length;
+  let cursor = 0;
+
+  while (remaining > 0) {
+    const wallet = walletOrder[cursor % walletOrder.length];
+    const bucket = groups.get(wallet);
+    if (bucket.length > 0) {
+      result.push({ nftId: bucket.shift(), wallet });
+      remaining--;
+    }
+    cursor++;
+  }
+
+  return result;
+}
 
 function renderTable() {
   const tbody = document.getElementById('tableBody');
