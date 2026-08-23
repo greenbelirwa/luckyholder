@@ -5,12 +5,18 @@
  *
  * REQUIREMENTS:
  *   Node.js (nodejs.org) — free
- *   Run once: npm install ethers
+ *   Run once: npm install   (installs ethers@6.9.0, pinned in package.json to
+ *                            match the exact version used on the website —
+ *                            do NOT run "npm install ethers" without the
+ *                            version pin, a newer major version may change
+ *                            keccak256/solidityPacked behavior and produce
+ *                            different winners than the website)
  *
  * HOW TO RUN:
  *   1. Install Node.js from nodejs.org
- *   2. Open Terminal / Command Prompt in this folder
- *   3. Run: npm install ethers
+ *   2. Open Terminal / Command Prompt in this folder (must contain
+ *      package.json alongside this script)
+ *   3. Run: npm install
  *   4. Run: node verify-draw.js
  *   5. Follow the prompts
  *

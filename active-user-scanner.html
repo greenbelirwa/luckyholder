@@ -353,7 +353,7 @@ tr:hover td { background: var(--surface2); }
       <div class="cfg-grid">
         <div class="field cfg-full">
           <label>Moralis API Key (free at moralis.io)</label>
-          <input type="text" id="apiKey" placeholder="Paste your Moralis API Key here..." />
+          <input type="password" id="apiKey" placeholder="Paste your Moralis API Key here..." autocomplete="off" />
           <div style="margin-top:6px;font-size:11px;color:var(--text3)">
             Free tier: 40,000 requests/month · No credit card · Sign up at moralis.io
           </div>
@@ -469,7 +469,12 @@ tr:hover td { background: var(--surface2); }
     </div>
     <div style="font-size:12px;color:#6b7280;line-height:1.7;margin-bottom:14px;">
       📢 <b>Post this hash on Telegram/Twitter BEFORE the draw.</b><br>
-      Users can verify the participant list was never modified by comparing this hash.
+      Users can verify the participant list was never modified by comparing this hash.<br>
+      ⚠ Before pasting this CSV into Google Sheets, format the <b>NFT_ID</b> and
+      <b>WALLET</b> columns as <b>Plain Text</b> first. Otherwise Sheets may
+      auto-reformat numeric-looking values (leading zeros dropped, scientific
+      notation) when you paste, and the published sheet's hash will no longer
+      match the one shown here.
     </div>
     <button onclick="copyHash()" style="background:#16a34a;border:none;border-radius:8px;color:white;font-family:'DM Sans',sans-serif;font-weight:600;font-size:13px;padding:9px 20px;cursor:pointer;">
       Copy Hash
@@ -485,6 +490,19 @@ const MORALIS_BASE  = "https://deep-index.moralis.io/api/v2.2";
 
 let allRows = [], filtered = [], currentPage = 1, pageSize = 50;
 let sortKey = 'nftId', sortAsc = true;
+
+// ── Escape untrusted data before it touches innerHTML/attributes ────────────
+// nftId/wallet ultimately originate from on-chain data via Moralis, but we
+// treat them as untrusted anyway (defense in depth) before ever putting them
+// into innerHTML or an attribute.
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 function log(msg, type = '') {
   const b = document.getElementById('logBody');
@@ -689,16 +707,16 @@ function renderTable() {
   tbody.innerHTML = slice.map((row, i) => `
     <tr>
       <td style="color:var(--text3);font-family:'DM Mono',monospace;font-size:11px">${start + i + 1}</td>
-      <td><span class="nft-pill">#${row.nftId}</span></td>
+      <td><span class="nft-pill">#${escapeHtml(row.nftId)}</span></td>
       <td class="wallet-mono">
-        <span class="wallet-full">${row.wallet}</span>
-        <span class="wallet-short">${row.wallet.slice(0,8)}...${row.wallet.slice(-6)}</span>
+        <span class="wallet-full">${escapeHtml(row.wallet)}</span>
+        <span class="wallet-short">${escapeHtml(row.wallet.slice(0,8))}...${escapeHtml(row.wallet.slice(-6))}</span>
       </td>
       <td>
-        <a class="link-icon" href="https://bscscan.com/token/${NFT_CONTRACT}?a=${row.wallet}" target="_blank" title="View on BSCScan">↗</a>
+        <a class="link-icon" href="https://bscscan.com/token/${encodeURIComponent(NFT_CONTRACT)}?a=${encodeURIComponent(row.wallet)}" target="_blank" title="View on BSCScan">↗</a>
       </td>
       <td>
-        <button class="btn-copy" onclick="copyText('${row.wallet}',this)">Copy</button>
+        <button class="btn-copy" data-copy="${escapeHtml(row.wallet)}">Copy</button>
       </td>
     </tr>`).join('');
 
@@ -706,6 +724,14 @@ function renderTable() {
   document.getElementById('pgInfo').textContent = `${filtered.length} entries · page ${currentPage} of ${pages || 1}`;
   renderPagination(pages);
 }
+
+// Event delegation for the per-row Copy buttons — reads data-copy instead of
+// interpolating wallet addresses into an inline onclick string.
+document.getElementById('tableBody').addEventListener('click', (e) => {
+  const btn = e.target.closest('.btn-copy[data-copy]');
+  if (!btn) return;
+  copyText(btn.getAttribute('data-copy'), btn);
+});
 
 function renderPagination(pages) {
   const c = document.getElementById('pgBtns');

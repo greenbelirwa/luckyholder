@@ -1,0 +1,13 @@
+{
+  "name": "green-beli-lucky-holder-verify",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Standalone script to independently verify a Green Beli Lucky Holder Draw result.",
+  "main": "verify-draw.js",
+  "scripts": {
+    "verify": "node verify-draw.js"
+  },
+  "dependencies": {
+    "ethers": "6.9.0"
+  }
+}

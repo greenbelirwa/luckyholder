@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Green Beli — Lucky Holder Draw</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -475,7 +479,12 @@ body::after {
             style="font-family:'DM Mono',monospace;font-size:12px;" />
           <div class="hint">
             Sheet must be <b>published to web</b>:<br>
-            File → Share → Publish to web → CSV → Copy link
+            File → Share → Publish to web → CSV → Copy link<br>
+            ⚠ A normal "share" link (not published) often fails to load due to
+            browser CORS restrictions — always use the Publish-to-web CSV link above.<br>
+            ⚠ Format the <b>NFT_ID</b> and <b>WALLET</b> columns as <b>Plain Text</b> in
+            Google Sheets before publishing, otherwise Sheets may auto-reformat numbers
+            (dropping leading zeros / scientific notation) and break the integrity hash below.
           </div>
         </div>
         <button onclick="loadSheet()"
@@ -609,6 +618,18 @@ body::after {
 <script>
 let csvRows = [], lastWinners = [];
 
+// ── Escape untrusted data before it ever touches innerHTML/attributes ────────
+// nftId/wallet come from a publicly-editable Google Sheet, so they must be
+// treated as untrusted input, not just checked for a "0x" prefix.
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // ── Load from Google Sheet ───────────────────────────────────────────────────
 async function loadSheet() {
   const raw = document.getElementById('sheetUrl').value.trim();
@@ -649,7 +670,13 @@ async function loadSheet() {
     await parseCSV(text, 'Google Sheet');
 
   } catch(e) {
-    showError('Failed to load: ' + e.message);
+    // A generic "Failed to fetch" almost always means the link isn't a
+    // Publish-to-web CSV link and the browser blocked it via CORS.
+    const isLikelyCors = /failed to fetch/i.test(e.message) || e instanceof TypeError;
+    const hint = isLikelyCors
+      ? ' — this usually means the link is not a "Publish to web" CSV link (File → Share → Publish to web → CSV). A normal share link will be blocked by the browser (CORS).'
+      : '';
+    showError('Failed to load: ' + e.message + hint);
   }
 
   btn.textContent = 'Load Participant List';
@@ -715,7 +742,7 @@ async function verifyHash() {
     box.innerHTML = `<div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:8px;padding:12px 14px;font-size:13px;font-weight:600;color:#dc2626;">
       ❌ Hash mismatch! This file may have been modified.<br>
       <span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:400;word-break:break-all;margin-top:6px;display:block;">
-        Expected: ${expected}<br>Actual: ${actual}
+        Expected: ${escapeHtml(expected)}<br>Actual: ${escapeHtml(actual)}
       </span>
     </div>`;
   }
@@ -780,8 +807,8 @@ function renderResults(winners, blockHash, blockNum, num) {
     `${num} winner${num>1?'s':''} · Block #${blockNum||'?'} · ${csvRows.length.toLocaleString()} total entries`;
 
   document.getElementById('seedCard').innerHTML =
-    `<div class="seed-row"><span class="seed-key">Block Number</span><span class="seed-val">#${blockNum||'—'}</span></div>
-     <div class="seed-row"><span class="seed-key">Block Hash</span><span class="seed-val">${blockHash}</span></div>
+    `<div class="seed-row"><span class="seed-key">Block Number</span><span class="seed-val">#${escapeHtml(blockNum||'—')}</span></div>
+     <div class="seed-row"><span class="seed-key">Block Hash</span><span class="seed-val">${escapeHtml(blockHash)}</span></div>
      <div class="seed-row"><span class="seed-key">Total Entries</span><span class="seed-val">${csvRows.length.toLocaleString()} NFT IDs</span></div>
      <div class="seed-row"><span class="seed-key">Winners</span><span class="seed-val">${num}</span></div>`;
 
@@ -789,20 +816,30 @@ function renderResults(winners, blockHash, blockNum, num) {
     <div class="winner-card">
       <div class="w-rank">${medals[i]||i+1}</div>
       <div class="w-body">
-        <div class="w-nft">NFT <em>#${row.nftId}</em></div>
+        <div class="w-nft">NFT <em>#${escapeHtml(row.nftId)}</em></div>
         <div class="w-wallet">
-          <a href="https://bscscan.com/address/${row.wallet}" target="_blank">${row.wallet}</a>
+          <a href="https://bscscan.com/address/${encodeURIComponent(row.wallet)}" target="_blank">${escapeHtml(row.wallet)}</a>
         </div>
       </div>
       <div class="w-actions">
-        <button class="btn-sm" onclick="copyText('${row.wallet}',this)">Copy wallet</button>
-        <button class="btn-sm" onclick="copyText('${row.nftId}',this)">Copy ID</button>
+        <button class="btn-sm" data-copy="${escapeHtml(row.wallet)}">Copy wallet</button>
+        <button class="btn-sm" data-copy="${escapeHtml(row.nftId)}">Copy ID</button>
       </div>
     </div>`).join('');
 
   document.getElementById('results').style.display = 'block';
   document.getElementById('results').scrollIntoView({ behavior:'smooth' });
 }
+
+// Event delegation for the copy buttons rendered above — reads data-copy
+// instead of interpolating untrusted CSV values into an inline onclick
+// string (which was exploitable as XSS if a wallet/NFT ID contained a
+// stray quote).
+document.getElementById('winnersList').addEventListener('click', (e) => {
+  const btn = e.target.closest('.btn-sm[data-copy]');
+  if (!btn) return;
+  copyText(btn.getAttribute('data-copy'), btn);
+});
 
 function showError(msg) {
   const b = document.getElementById('errorBox');
