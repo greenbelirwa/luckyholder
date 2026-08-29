@@ -477,15 +477,6 @@ body::after {
           <input type="text" id="sheetUrl"
             placeholder="Paste Google Sheet link here..."
             style="font-family:'DM Mono',monospace;font-size:12px;" />
-          <div class="hint">
-            Sheet must be <b>published to web</b>:<br>
-            File → Share → Publish to web → CSV → Copy link<br>
-            ⚠ A normal "share" link (not published) often fails to load due to
-            browser CORS restrictions — always use the Publish-to-web CSV link above.<br>
-            ⚠ Format the <b>NFT_ID</b> and <b>WALLET</b> columns as <b>Plain Text</b> in
-            Google Sheets before publishing, otherwise Sheets may auto-reformat numbers
-            (dropping leading zeros / scientific notation) and break the integrity hash below.
-          </div>
         </div>
         <button onclick="loadSheet()"
           style="width:100%;background:var(--green-600);border:none;border-radius:9px;color:white;font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:13px;padding:11px;cursor:pointer;transition:all 0.2s;margin-top:4px;"
