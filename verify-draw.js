@@ -137,9 +137,8 @@ async function main() {
   console.log("=".repeat(60));
   console.log("  RESULTS");
   console.log("=".repeat(60));
-  const medals = ['🥇', '🥈', '🥉', '4 ', '5 ', '6 ', '7 ', '8 ', '9 ', '10'];
   winners.forEach((w, i) => {
-    console.log(`${medals[i] || (i + 1)} NFT #${w.nftId.padEnd(8)} → ${w.wallet}`);
+    console.log(`${String(i + 1).padStart(2)}. NFT #${w.nftId.padEnd(8)} → ${w.wallet}`);
   });
   console.log("=".repeat(60));
   console.log();
