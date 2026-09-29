@@ -352,10 +352,10 @@ tr:hover td { background: var(--surface2); }
     <div class="card-body">
       <div class="cfg-grid">
         <div class="field cfg-full">
-          <label>Moralis API Key (free at moralis.io)</label>
-          <input type="password" id="apiKey" placeholder="Paste your Moralis API Key here..." autocomplete="off" />
+          <label>Ankr API Key (free at ankr.com/rpc)</label>
+          <input type="password" id="apiKey" placeholder="Paste your Ankr API Key here..." autocomplete="off" />
           <div style="margin-top:6px;font-size:11px;color:var(--text3)">
-            Free tier: 40,000 requests/month · No credit card · Sign up at moralis.io
+            Ankr Freemium (free) is used only to read GRBE transfer history · NFT holdings are read directly from public BSC RPC nodes
           </div>
         </div>
         <div class="field">
@@ -486,13 +486,21 @@ tr:hover td { background: var(--surface2); }
 const ADMIN_WALLET  = "0xeCe1C04f4e37452e303A0766588Ab880D7eECFF7";
 const GRBE_CONTRACT = "0x5Ca4e7294B14EA5745EE2A688990e0cb68503219";
 const NFT_CONTRACT  = "0x0D56354B247a6e1b0b0190476198E95Ad13d77a4";
-const MORALIS_BASE  = "https://deep-index.moralis.io/api/v2.2";
+const ANKR_MULTICHAIN = "https://rpc.ankr.com/multichain/";
+const MULTICALL3    = "0xcA11bde05977b3631167028862bE2a173976CA11";
+// Public BSC RPC nodes (CORS-enabled). Tried in order; on failure the next one is used.
+const PUBLIC_RPCS   = [
+  "https://bsc-dataseed.bnbchain.org",
+  "https://bsc-rpc.publicnode.com",
+  "https://bsc-dataseed1.defibit.io",
+  "https://bsc-dataseed1.ninicoin.io",
+];
 
 let allRows = [], filtered = [], currentPage = 1, pageSize = 50;
 let sortKey = 'nftId', sortAsc = true;
 
 // ── Escape untrusted data before it touches innerHTML/attributes ────────────
-// nftId/wallet ultimately originate from on-chain data via Moralis, but we
+// nftId/wallet ultimately originate from on-chain data via Ankr/RPC, but we
 // treat them as untrusted anyway (defense in depth) before ever putting them
 // into innerHTML or an attribute.
 function escapeHtml(str) {
@@ -526,84 +534,292 @@ function showError(msg) {
   b.style.display = 'block';
 }
 
-// ── Moralis API call ─────────────────────────────────────────────────────────
-async function moralis(path, apiKey, params = {}) {
-  const url = MORALIS_BASE + path + '?' + new URLSearchParams({ chain: '0x38', ...params });
-  const res  = await fetch(url, { headers: { 'X-API-Key': apiKey } });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `HTTP ${res.status}`);
+// ── Generic helpers ──────────────────────────────────────────────────────────
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// Retry with exponential backoff. After the last attempt the error is THROWN —
+// callers must never swallow it: a silently skipped page or wallet means
+// missing tickets (the bug that once dropped ~1300 tickets to ~887).
+async function withRetry(label, fn, attempts = 5) {
+  let lastErr;
+  for (let i = 1; i <= attempts; i++) {
+    try { return await fn(); }
+    catch (e) {
+      lastErr = e;
+      if (e.fatal) throw e;                       // e.g. invalid API key
+      if (i < attempts) {
+        const wait = Math.min(1500 * 2 ** (i - 1), 20000);
+        log(`${label}: ${e.message} — retry ${i}/${attempts - 1} in ${wait / 1000}s`, 'warn');
+        await sleep(wait);
+      }
+    }
   }
-  return res.json();
+  throw new Error(`${label} failed after ${attempts} attempts: ${lastErr.message}`);
 }
 
-// ── Get ALL pages from Moralis (handles cursor pagination) ───────────────────
-async function moralisAllPages(path, apiKey, params = {}, onPage) {
-  let cursor = null, page = 0, allResults = [];
-  do {
-    const p = cursor ? { ...params, cursor } : params;
-    const data = await moralis(path, apiKey, p);
-    const items = data.result || [];
-    allResults.push(...items);
-    cursor = data.cursor || null;
-    page++;
-    if (onPage) onPage(page, allResults.length);
-    await new Promise(r => setTimeout(r, 150));
-  } while (cursor);
-  return allResults;
+// ── Ankr Advanced API (GRBE transfer history of the admin wallet) ────────────
+// Freemium limit: 50 req/min → keep ≥1.3 s between calls.
+const ANKR_MIN_GAP_MS = 1300;
+let lastAnkrCall = 0;
+
+async function ankr(method, params, apiKey) {
+  const gap = Date.now() - lastAnkrCall;
+  if (gap < ANKR_MIN_GAP_MS) await sleep(ANKR_MIN_GAP_MS - gap);
+  lastAnkrCall = Date.now();
+
+  const res = await fetch(ANKR_MULTICHAIN + encodeURIComponent(apiKey), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+  });
+  const text = await res.text();
+  let data = null;
+  try { data = JSON.parse(text); } catch {}
+  const errMsg = data && (typeof data.error === 'string' ? data.error : data.error && data.error.message);
+  if (!res.ok || errMsg || !data || !data.result) {
+    const msg = errMsg || `HTTP ${res.status}`;
+    const err = new Error('Ankr: ' + msg);
+    if (res.status === 401 || res.status === 403 || /api key|unauthori[sz]ed|not allowed/i.test(msg)) {
+      err.fatal = true;   // a bad key will never succeed on retry
+      err.message = 'Ankr rejected the API key: ' + msg;
+    }
+    throw err;
+  }
+  return data.result;
+}
+
+// Raw integer amount (wei) of a transfer returned by Ankr
+function rawTokenValue(tx) {
+  if (tx.valueRawInteger != null && tx.valueRawInteger !== '') return BigInt(tx.valueRawInteger);
+  const dec = Number(tx.tokenDecimals ?? 18);
+  const [i, f = ''] = String(tx.value).split('.');
+  return BigInt(i || '0') * 10n ** BigInt(dec) + BigInt((f + '0'.repeat(dec)).slice(0, dec) || '0');
+}
+
+// ── Public BSC RPC (NFT holdings) ────────────────────────────────────────────
+let rpcIndex = 0;
+async function rpcCall(method, params) {
+  let lastErr;
+  for (let k = 0; k < PUBLIC_RPCS.length; k++) {
+    const idx = (rpcIndex + k) % PUBLIC_RPCS.length;
+    const url = PUBLIC_RPCS[idx];
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+      if (data.result === undefined || data.result === null) throw new Error('empty result');
+      rpcIndex = idx;                 // stick with the node that works
+      return data.result;
+    } catch (e) {
+      lastErr = new Error(`${new URL(url).host}: ${e.message}`);
+    }
+  }
+  throw lastErr;
+}
+
+// ── Minimal ABI encoding for Multicall3.aggregate3 ───────────────────────────
+const SEL = {
+  balanceOf:           '70a08231',
+  tokenOfOwnerByIndex: '2f745c59',
+  ownerOf:             '6352211e',
+  totalSupply:         '18160ddd',
+  aggregate3:          '82ad56cb',
+};
+const hex32  = n => BigInt(n).toString(16).padStart(64, '0');
+const addr32 = a => a.toLowerCase().replace(/^0x/, '').padStart(64, '0');
+const toAddr = v => '0x' + v.toString(16).padStart(40, '0');
+
+function encodeAggregate3(target, callDatas) {
+  const n = callDatas.length;
+  const tuples = callDatas.map(cd => {
+    const len = cd.length / 2;
+    const padded = cd.padEnd(Math.ceil(len / 32) * 64, '0');
+    // (address target, bool allowFailure = false, bytes callData)
+    return addr32(target) + hex32(0) + hex32(96) + hex32(len) + padded;
+  });
+  const offsets = [];
+  let off = n * 32;
+  for (const t of tuples) { offsets.push(hex32(off)); off += t.length / 2; }
+  return '0x' + SEL.aggregate3 + hex32(32) + hex32(n) + offsets.join('') + tuples.join('');
+}
+
+// Decodes (bool success, bytes returnData)[] where every returnData is one uint256
+function decodeAggregate3(ret, expected) {
+  const h = ret.replace(/^0x/, '');
+  const num = byteOff => Number(BigInt('0x' + h.slice(byteOff * 2, byteOff * 2 + 64)));
+  const arr = num(0);
+  const n = num(arr);
+  if (n !== expected) throw new Error(`Multicall returned ${n} results, expected ${expected}`);
+  const base = arr + 32;
+  const out = [];
+  for (let k = 0; k < n; k++) {
+    const t   = base + num(base + k * 32);
+    const ok  = num(t) === 1;
+    const bo  = t + num(t + 32);
+    const len = num(bo);
+    if (!ok || len !== 32) throw new Error(`Multicall sub-call #${k} failed`);
+    out.push(BigInt('0x' + h.slice((bo + 32) * 2, (bo + 64) * 2)));
+  }
+  return out;
+}
+
+// Runs many uint256 view calls against one contract, pinned to one block.
+// Every chunk must succeed (allowFailure = false) — nothing is skipped.
+const MULTICALL_CHUNK = 250;
+async function multicallUint(target, callDatas, blockTag, label, onChunk) {
+  const out = [];
+  for (let i = 0; i < callDatas.length; i += MULTICALL_CHUNK) {
+    const chunk = callDatas.slice(i, i + MULTICALL_CHUNK);
+    const data  = encodeAggregate3(target, chunk);
+    const res = await withRetry(`${label} ${i + 1}-${i + chunk.length}`,
+      async () => decodeAggregate3(await rpcCall('eth_call', [{ to: MULTICALL3, data }, blockTag]), chunk.length));
+    out.push(...res);
+    if (onChunk) onChunk(out.length, callDatas.length);
+  }
+  return out;
 }
 
 // ── Step 1: Get wallets that sent >= 1 GRBE to admin ────────────────────────
-// Query thẳng lịch sử token transfers của ví admin — nhanh hơn nhiều
-async function getActiveWallets(apiKey) {
-  log('Fetching incoming GRBE transfers of admin wallet...');
-  setProgress('Reading admin wallet transfers...', 10);
+// Reads the admin wallet's full token-transfer history from Ankr (every page,
+// no block-range limit) up to snapshotBlock, then keeps GRBE transfers INTO admin.
+async function getActiveWallets(apiKey, snapshotBlock) {
+  log(`Fetching token transfers of admin wallet up to block ${snapshotBlock}...`);
+  setProgress('Reading admin wallet transfers...', 5);
 
-  const txs = await moralisAllPages(
-    `/${ADMIN_WALLET}/erc20/transfers`,
-    apiKey,
-    { limit: 100, contract_addresses: [GRBE_CONTRACT] },
-    (page, total) => {
-      setProgress(`Reading admin wallet... (${total} txs so far)`, 10 + page * 3);
-      log(`Page ${page}: ${total} transfers fetched`);
+  const txs = [];
+  const seenTokens = new Set();
+  let pageToken = '', page = 0;
+  do {
+    const params = {
+      blockchain: 'bsc',
+      address:    [ADMIN_WALLET],
+      toBlock:    snapshotBlock,
+      descOrder:  true,            // newest first (same order as the old Moralis scan)
+      pageSize:   10000,
+    };
+    if (pageToken) params.pageToken = pageToken;
+    const r = await withRetry(`Ankr page ${page + 1}`, () => ankr('ankr_getTokenTransfers', params, apiKey));
+    const list = Array.isArray(r.transfers) ? r.transfers : [];
+    txs.push(...list);
+    page++;
+    const next = r.nextPageToken || '';
+    if (next && seenTokens.has(next)) {
+      throw new Error('Ankr returned the same page token twice — aborting so the list is never incomplete.');
     }
-  );
+    seenTokens.add(next);
+    pageToken = next;
+    log(`Page ${page}: ${list.length} transfers (${txs.length} total)`);
+    setProgress(`Reading admin wallet... (${txs.length} transfers so far)`, Math.min(5 + page * 3, 35));
+  } while (pageToken);
 
-  const ONE_GRBE = BigInt("1000000000000000000");
+  const ONE_GRBE = 10n ** 18n;
+  const admin = ADMIN_WALLET.toLowerCase();
+  const grbe  = GRBE_CONTRACT.toLowerCase();
   const walletSet = new Set();
+  let grbeIn = 0;
   for (const tx of txs) {
-    // Chỉ lấy tx GỬI VÀO admin (to = admin)
-    if (tx.to_address.toLowerCase() !== ADMIN_WALLET.toLowerCase()) continue;
-    try {
-      if (BigInt(tx.value) >= ONE_GRBE) {
-        walletSet.add(tx.from_address.toLowerCase());
-      }
-    } catch {}
+    if ((tx.blockchain && tx.blockchain !== 'bsc')) continue;
+    if (String(tx.contractAddress || '').toLowerCase() !== grbe) continue;
+    if (String(tx.toAddress || '').toLowerCase() !== admin) continue;
+    grbeIn++;
+    let value;
+    try { value = rawTokenValue(tx); }
+    catch { throw new Error(`Cannot parse transfer amount in tx ${tx.transactionHash}`); }
+    if (value >= ONE_GRBE) walletSet.add(String(tx.fromAddress).toLowerCase());
   }
 
-  log(`Found ${walletSet.size} unique wallets that sent ≥ 1 GRBE`, 'ok');
+  if (grbeIn === 0) {
+    throw new Error('Ankr returned no GRBE transfers into the admin wallet — refusing to continue (check the API key / Ankr status).');
+  }
+  log(`${grbeIn} GRBE transfers into admin · ${walletSet.size} unique wallets sent ≥ 1 GRBE`, 'ok');
   return [...walletSet];
 }
 
-// ── Step 2: Get NFT IDs held by a wallet ────────────────────────────────────
-async function getNftIdsForWallet(wallet, apiKey) {
-  const items = await moralisAllPages(
-    `/${wallet}/nft`,
-    apiKey,
-    { token_addresses: NFT_CONTRACT, limit: 100 }
-  );
-  return items.map(n => n.token_id);
+// ── Step 2: NFT Tree holdings of every wallet (public RPC + Multicall3) ─────
+// NFT Tree is ERC721Enumerable: balanceOf(wallet) + tokenOfOwnerByIndex(wallet, i).
+// All reads are pinned to ONE block, then cross-checked with ownerOf(tokenId).
+async function getHoldings(wallets, blockNum) {
+  const blockTag = '0x' + blockNum.toString(16);
+
+  const supply = decodeAggregate3(
+    await withRetry('totalSupply', () => rpcCall('eth_call',
+      [{ to: MULTICALL3, data: encodeAggregate3(NFT_CONTRACT, [SEL.totalSupply]) }, blockTag])), 1)[0];
+
+  log(`Reading NFT Tree balances of ${wallets.length} wallets at block ${blockNum}...`);
+  const balances = await multicallUint(NFT_CONTRACT,
+    wallets.map(w => SEL.balanceOf + addr32(w)), blockTag, 'balanceOf',
+    (d, t) => setProgress(`Reading balances ${d}/${t}`, 40 + (d / t) * 15));
+
+  const totalBal = balances.reduce((a, b) => a + b, 0n);
+  if (totalBal > supply) throw new Error(`Sum of balances (${totalBal}) > totalSupply (${supply}) — inconsistent data.`);
+
+  const calls = [], owners = [];
+  wallets.forEach((w, i) => {
+    for (let j = 0n; j < balances[i]; j++) {
+      calls.push(SEL.tokenOfOwnerByIndex + addr32(w) + hex32(j));
+      owners.push(w);
+    }
+  });
+  log(`Reading ${calls.length} NFT IDs...`);
+  const ids = await multicallUint(NFT_CONTRACT, calls, blockTag, 'tokenOfOwnerByIndex',
+    (d, t) => setProgress(`Reading NFT IDs ${d}/${t}`, 55 + (d / t) * 20));
+
+  // Cross-check: every id is unique and ownerOf(id) is the wallet we attributed it to
+  log('Cross-checking every NFT with ownerOf()...');
+  const realOwners = await multicallUint(NFT_CONTRACT,
+    ids.map(id => SEL.ownerOf + hex32(id)), blockTag, 'ownerOf',
+    (d, t) => setProgress(`Verifying owners ${d}/${t}`, 75 + (d / t) * 20));
+  const seen = new Set();
+  ids.forEach((id, k) => {
+    const s = id.toString();
+    if (seen.has(s)) throw new Error(`NFT #${s} appears twice — aborting.`);
+    seen.add(s);
+    if (toAddr(realOwners[k]) !== owners[k]) {
+      throw new Error(`Owner mismatch for NFT #${s}: expected ${owners[k]}, got ${toAddr(realOwners[k])}`);
+    }
+  });
+  if (BigInt(ids.length) !== totalBal) throw new Error(`Got ${ids.length} IDs but balances sum to ${totalBal}.`);
+
+  log(`✓ Verified: ${ids.length} NFT IDs = sum of balances, all unique, all owners match (totalSupply ${supply}).`, 'ok');
+  return ids.map((id, k) => ({ nftId: id.toString(), wallet: owners[k] }));
+}
+
+// Step 2 is pinned to a recent block. Public (non-archive) nodes only keep
+// recent state, so if that block becomes unavailable we restart step 2 on a
+// fresh block instead of mixing data from different blocks.
+async function getHoldingsWithSnapshot(wallets) {
+  let lastErr;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const blockNum = parseInt(await withRetry('eth_blockNumber', () => rpcCall('eth_blockNumber', [])), 16);
+    try {
+      return { rows: await getHoldings(wallets, blockNum), blockNum };
+    } catch (e) {
+      lastErr = e;
+      if (attempt < 3) log(`Holdings read failed (${e.message}) — restarting step 2 on a fresh block...`, 'warn');
+    }
+  }
+  throw lastErr;
 }
 
 // ── Main scan ────────────────────────────────────────────────────────────────
+let scanRunning = false;
 async function runScan() {
+  if (scanRunning) return;
   const apiKey = document.getElementById('apiKey').value.trim();
-  if (!apiKey) { showError('Please enter your Moralis API Key.'); return; }
+  if (!apiKey) { showError('Please enter your Ankr API Key.'); return; }
+  scanRunning = true;
 
   document.getElementById('errorBox').style.display  = 'none';
   document.getElementById('logBody').innerHTML        = '';
   document.getElementById('statsRow').style.display  = 'none';
   document.getElementById('tableCard').style.display = 'none';
+  document.getElementById('hashBox').style.display   = 'none';
+  ['s1','s2','s3','s4'].forEach(id => document.getElementById(id).textContent = '0');
   allRows = []; filtered = [];
   pageSize = parseInt(document.getElementById('pageSize').value) || 50;
 
@@ -612,49 +828,43 @@ async function runScan() {
   btn.innerHTML = '<span class="spinner"></span>Scanning...';
 
   try {
-    const wallets = await getActiveWallets(apiKey);
-    if (!wallets.length) { log('No wallets found that sent GRBE.', 'warn'); return; }
+    const snapshotBlock = parseInt(await withRetry('eth_blockNumber', () => rpcCall('eth_blockNumber', [])), 16);
+    log(`Snapshot block: ${snapshotBlock}`);
+
+    const wallets = await getActiveWallets(apiKey, snapshotBlock);
+    if (!wallets.length) { log('No wallets found that sent ≥ 1 GRBE.', 'warn'); return; }
     document.getElementById('s1').textContent = wallets.length;
 
-    log(`Checking NFT Tree holdings for ${wallets.length} wallets...`);
-    let walletsWithNft = 0;
+    const { rows, blockNum } = await getHoldingsWithSnapshot(wallets);
 
-    for (let i = 0; i < wallets.length; i++) {
-      const wallet = wallets[i];
-      setProgress(`Checking wallet ${i + 1} / ${wallets.length}`, 40 + (i / wallets.length) * 55);
+    const perWallet = new Map();
+    for (const r of rows) perWallet.set(r.wallet, (perWallet.get(r.wallet) || 0) + 1);
+    for (const [w, n] of perWallet) log(`${w.slice(0,10)}...${w.slice(-6)} → ${n} NFT(s)`, 'ok');
 
-      try {
-        const ids = await getNftIdsForWallet(wallet, apiKey);
-        if (ids.length > 0) {
-          walletsWithNft++;
-          log(`${wallet.slice(0,10)}...${wallet.slice(-6)} → ${ids.length} NFT(s): [${ids.slice(0,3).join(', ')}${ids.length > 3 ? '...' : ''}]`, 'ok');
-          ids.forEach(id => allRows.push({ nftId: id, wallet }));
-          document.getElementById('s2').textContent = walletsWithNft;
-          document.getElementById('s3').textContent = allRows.length;
-          document.getElementById('s4').textContent = allRows.length;
-        }
-      } catch(e) {
-        log(`Could not check ${wallet.slice(0,10)}: ${e.message}`, 'warn');
-      }
-      await new Promise(r => setTimeout(r, 150));
-    }
-
+    const tmpRows = rows;
     setProgress('Complete!', 100);
-    log(`─── Done: ${walletsWithNft} wallets with NFT Tree · ${allRows.length} total tickets ───`, 'ok');
+    log(`─── Done: ${perWallet.size} wallets with NFT Tree · ${tmpRows.length} total tickets · holdings at block ${blockNum} ───`, 'ok');
 
     // Interleave rows so that NFTs from the same wallet are spread apart
     // (prevents multiple NFTs of one wallet from sitting next to each other)
-    allRows = interleaveByWallet(allRows);
+    allRows = interleaveByWallet(tmpRows);
     log('Interleaved list: NFTs from the same wallet are now spread apart.', 'ok');
 
+    document.getElementById('s2').textContent = perWallet.size;
+    document.getElementById('s3').textContent = allRows.length;
+    document.getElementById('s4').textContent = allRows.length;
     document.getElementById('statsRow').style.display = 'grid';
     filtered = [...allRows];
+    currentPage = 1;
     renderTable();
 
   } catch(e) {
-    showError('Error: ' + e.message);
+    // Any failure aborts the whole scan — never show / export a partial list
+    allRows = []; filtered = [];
+    showError('Scan aborted, no list produced: ' + e.message);
     log('Error: ' + e.message, 'err');
   } finally {
+    scanRunning = false;
     btn.disabled = false;
     btn.innerHTML = '↺ &nbsp; Run Again';
   }

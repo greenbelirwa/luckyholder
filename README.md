@@ -10,7 +10,7 @@ static site at `luckyholder.greenbeli.io` (see `CNAME`).
   runs the draw in-browser. Anyone can reproduce the exact same result with
   the same inputs (see "How the draw works" below).
 - **`active-user-scanner.html`** — internal admin tool. Scans on-chain data
-  via the [Moralis API](https://moralis.io) to build the participant list:
+  via the [Ankr Advanced API](https://www.ankr.com/advanced-api/) (GRBE transfer history) and public BSC RPC + Multicall3 (NFT Tree holdings) to build the participant list:
   wallets that sent ≥ 1 GRBE to the admin wallet, cross-referenced with which
   of those wallets hold an NFT Tree. Exports a CSV (`No,NFT_ID,WALLET`) ready
   to paste into the participant Google Sheet, plus a SHA-256 hash of that CSV
