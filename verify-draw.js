@@ -37,6 +37,45 @@ const ethers   = require('ethers');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const ask = (question) => new Promise(resolve => rl.question(question, resolve));
 
+// ── Rule 1: ticket cap per wallet ─────────────────────────────────────────────
+// Keeps the first `maxTickets` NFTs of each wallet in CSV order.
+// MUST stay identical to applyTicketCap() in index.html.
+function applyTicketCap(entries, maxTickets) {
+  const held = {}, tickets = [];
+  for (const e of entries) {
+    const w = e.wallet.toLowerCase();
+    held[w] = (held[w] || 0) + 1;
+    if (held[w] <= maxTickets) tickets.push(e);
+  }
+  const capped = Object.entries(held)
+    .filter(([, n]) => n > maxTickets)
+    .map(([wallet, n]) => ({ wallet, held: n }))
+    .sort((a, b) => b.held - a.held);
+  return { tickets, capped };
+}
+
+// ── Rule 2: Fisher-Yates + keccak256 with a win cap per wallet ────────────────
+// Same steps as the original draw; a ticket whose wallet already has
+// `maxWins` prizes is skipped and the shuffle simply continues.
+// If no wallet hits the cap, the result equals the original algorithm.
+// MUST stay identical to pickWinners() in index.html.
+function pickWinners(blockHash, pool, num, maxWins) {
+  const arr = [...pool];
+  const n   = arr.length;
+  const wins = {}, winners = [];
+  for (let i = 0; i < n && winners.length < num; i++) {
+    const encoded = ethers.solidityPacked(['bytes32', 'uint256'], [blockHash, i]);
+    const rand    = BigInt(ethers.keccak256(encoded));
+    const j       = Number(rand % BigInt(n - i)) + i;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    const w = arr[i].wallet.toLowerCase();
+    if ((wins[w] || 0) >= maxWins) continue;
+    wins[w] = (wins[w] || 0) + 1;
+    winners.push(arr[i]);
+  }
+  return winners;
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
   console.log();
@@ -63,6 +102,20 @@ async function main() {
   const numWinners = parseInt(numWinnersRaw);
   if (isNaN(numWinners) || numWinners < 1) {
     console.error("\n❌ Invalid number of winners.");
+    rl.close(); process.exit(1);
+  }
+
+  const maxTicketsRaw = (await ask("  Max tickets/wallet : [50] ")).trim() || "50";
+  const maxTickets = parseInt(maxTicketsRaw);
+  if (isNaN(maxTickets) || maxTickets < 1) {
+    console.error("\n❌ Invalid max tickets per wallet.");
+    rl.close(); process.exit(1);
+  }
+
+  const maxWinsRaw = (await ask("  Max wins/wallet    : [3] ")).trim() || "3";
+  const maxWins = parseInt(maxWinsRaw);
+  if (isNaN(maxWins) || maxWins < 1) {
+    console.error("\n❌ Invalid max wins per wallet.");
     rl.close(); process.exit(1);
   }
 
@@ -109,31 +162,29 @@ async function main() {
   console.log(`🔐 File SHA-256  : ${fileHash}`);
   console.log(`   Compare with hash published by Green Beli to verify file integrity`);
   console.log();
-  console.log(`🌳 Total entries : ${entries.length} NFT IDs`);
+  // ── 3. Rule 1: ticket cap per wallet (same as website) ───────
+  const { tickets, capped } = applyTicketCap(entries, maxTickets);
+
+  console.log(`🌳 Total NFTs    : ${entries.length} NFT IDs`);
+  console.log(`🎟  Tickets       : ${tickets.length} (max ${maxTickets} per wallet)`);
+  if (capped.length) {
+    console.log(`   Capped wallets (${capped.length}):`);
+    capped.forEach(c => console.log(`     ${c.wallet}  ${c.held} → ${maxTickets}`));
+  }
   console.log(`⛓  Block number  : ${blockNumber}`);
   console.log(`🔑 Block hash    : ${blockHash.slice(0, 20)}...`);
-  console.log(`🏆 Winners       : ${numWinners}`);
+  console.log(`🏆 Winners       : ${numWinners} (max ${maxWins} per wallet)`);
   console.log();
 
-  if (entries.length < numWinners) {
-    console.error(`❌ Not enough entries (${entries.length}) for ${numWinners} winners.`);
+  if (tickets.length < numWinners) {
+    console.error(`❌ Not enough tickets (${tickets.length}) for ${numWinners} winners.`);
     process.exit(1);
   }
 
-  // ── 3. Fisher-Yates seeded with keccak256 (same as website) ──
-  const pool = [...entries];
-  const N    = pool.length;
+  // ── 4. Rule 2: Fisher-Yates + keccak256 with win cap ─────────
+  const winners = pickWinners(blockHash, tickets, numWinners, maxWins);
 
-  for (let i = 0; i < numWinners; i++) {
-    const encoded = ethers.solidityPacked(['bytes32', 'uint256'], [blockHash, i]);
-    const rand    = BigInt(ethers.keccak256(encoded));
-    const j       = Number(rand % BigInt(N - i)) + i;
-    [pool[i], pool[j]] = [pool[j], pool[i]];
-  }
-
-  const winners = pool.slice(0, numWinners);
-
-  // ── 4. Print results ──────────────────────────────────────────
+  // ── 5. Print results ──────────────────────────────────────────
   console.log("=".repeat(60));
   console.log("  RESULTS");
   console.log("=".repeat(60));
@@ -141,6 +192,10 @@ async function main() {
     console.log(`${String(i + 1).padStart(2)}. NFT #${w.nftId.padEnd(8)} → ${w.wallet}`);
   });
   console.log("=".repeat(60));
+  if (winners.length < numWinners) {
+    console.log(`⚠  Only ${winners.length} of ${numWinners} prizes could be awarded:`);
+    console.log(`   not enough wallets under the ${maxWins}-win cap.`);
+  }
   console.log();
   console.log("✅ Verification complete.");
   console.log("   If these match the announced results → draw was fair.");

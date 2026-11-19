@@ -263,7 +263,7 @@ body::after {
 .algo-body {
   padding: 20px 24px;
   font-family: 'DM Mono', monospace; font-size: 12.5px; line-height: 2.2;
-  overflow-x: auto; background: white;
+  overflow-x: auto; background: white; white-space: pre;
 }
 .c-comment { color: #9ca3af; }
 .c-key     { color: var(--green-700); font-weight: 600; }
@@ -528,6 +528,17 @@ body::after {
           <label>Number of Winners</label>
           <input type="number" id="numWinners" value="5" min="1" max="100" oninput="updateAlgo()" />
         </div>
+        <div class="field">
+          <label>Max Tickets per Wallet</label>
+          <input type="number" id="maxTickets" value="50" min="1" oninput="updateAlgo(); updateCapInfo()" />
+          <div class="hint">Only the first N NFTs of each wallet (in CSV order) become tickets</div>
+        </div>
+        <div class="field">
+          <label>Max Wins per Wallet</label>
+          <input type="number" id="maxWins" value="3" min="1" oninput="updateAlgo()" />
+          <div class="hint">A wallet's extra drawn tickets are skipped once it reaches this limit</div>
+        </div>
+        <div id="capInfo" style="display:none;font-size:12px;line-height:1.6;color:var(--gray-600,#4b5563);background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;"></div>
       </div>
     </div>
   </div>
@@ -538,25 +549,28 @@ body::after {
       <div class="algo-header-dot"></div>
       <div class="algo-title">Public Algorithm — Anyone Can Verify This Draw</div>
     </div>
-    <div class="algo-body">
-<span class="c-comment">// Fisher-Yates shuffle — deterministic, tamper-proof</span>
+    <div class="algo-body"><span class="c-comment">// Fisher-Yates shuffle — deterministic, tamper-proof</span>
 <span class="c-comment">// Same block hash + same CSV → always same winners</span>
 
 <span class="c-key">seed</span>    = <span class="c-val" id="ap-hash">"[paste block hash above]"</span>
-<span class="c-key">pool</span>    = <span class="c-white">[all NFT IDs from CSV]</span>   <span class="c-comment">// <span id="ap-count">0</span> entries loaded</span>
+<span class="c-comment">// Rule 1: each wallet keeps only its first <span id="ap-maxt">50</span> NFTs (CSV order)</span>
+<span class="c-key">pool</span>    = <span class="c-white">[NFT IDs from CSV, capped per wallet]</span>   <span class="c-comment">// <span id="ap-count">0</span> tickets</span>
 <span class="c-key">winners</span> = <span class="c-white">[]</span>
 
-<span class="c-fn">for</span> <span class="c-white">i</span> <span class="c-fn">in</span> <span class="c-fn">range</span>(<span class="c-num" id="ap-num">5</span>):
+<span class="c-fn">for</span> <span class="c-white">i</span> <span class="c-fn">in</span> <span class="c-fn">range</span>(N) <span class="c-fn">until</span> len(winners) == <span class="c-num" id="ap-num">5</span>:
     <span class="c-comment">// ⚠ Encoding: seed = bytes32, i = uint256 (32 bytes big-endian)</span>
     rand_i  = <span class="c-fn">keccak256</span>( abi.encodePacked(bytes32(seed), uint256(i)) )
     j       = i + ( rand_i % (N - i) )
     <span class="c-fn">swap</span>( pool[i], pool[j] )
-    winners.<span class="c-fn">push</span>( pool[i] )
+    <span class="c-comment">// Rule 2: skip if this wallet already won <span id="ap-maxw">3</span> prizes</span>
+    <span class="c-fn">if</span> wins[pool[i].wallet] &lt; <span class="c-num" id="ap-maxw2">3</span>:
+        winners.<span class="c-fn">push</span>( pool[i] )
+        wins[pool[i].wallet] += 1
 
 <span class="c-comment">// ─────────────────────────────────────────────────────</span>
 <span class="c-comment">// Want to verify yourself? Download the ready-to-run</span>
 <span class="c-comment">// Node.js script: verify-draw.js (link below)</span>
-<span class="c-comment">// No packages needed · Works on Windows & Mac</span>
+<span class="c-comment">// Run: npm install, then node verify-draw.js</span>
 <span class="c-comment">// ─────────────────────────────────────────────────────</span>
     </div>
   </div>
@@ -691,7 +705,7 @@ async function parseCSV(text, filename) {
   ok.style.display = 'block';
   ok.innerHTML = `✅ &nbsp;<b>${parsed.length.toLocaleString()} entries</b> loaded from ${filename}`;
   document.getElementById('errorBox').style.display = 'none';
-  document.getElementById('ap-count').textContent = parsed.length.toLocaleString();
+  updateCapInfo();
 
   // Calculate hash and show verify box
   window._fileHash = await sha256(text);
@@ -745,19 +759,76 @@ function updateAlgo() {
   const n = document.getElementById('numWinners').value || '5';
   document.getElementById('ap-hash').textContent = h ? `"${h.slice(0,20)}..."` : '"[paste block hash above]"';
   document.getElementById('ap-num').textContent  = n;
+  const { maxTickets, maxWins } = getCaps();
+  document.getElementById('ap-maxt').textContent  = maxTickets || '?';
+  document.getElementById('ap-maxw').textContent  = maxWins || '?';
+  document.getElementById('ap-maxw2').textContent = maxWins || '?';
 }
 
-// ── Fisher-Yates + keccak256 ─────────────────────────────────────────────────
-async function pickWinners(blockHash, pool, num) {
+function getCaps() {
+  return {
+    maxTickets: parseInt(document.getElementById('maxTickets').value),
+    maxWins:    parseInt(document.getElementById('maxWins').value),
+  };
+}
+
+// Show "X NFTs → Y tickets" and which wallets were capped
+function updateCapInfo() {
+  const box = document.getElementById('capInfo');
+  const { maxTickets } = getCaps();
+  if (!csvRows.length || !(maxTickets >= 1)) {
+    box.style.display = 'none';
+    document.getElementById('ap-count').textContent = '0';
+    return;
+  }
+  const { tickets, capped } = applyTicketCap(csvRows, maxTickets);
+  document.getElementById('ap-count').textContent = tickets.length.toLocaleString();
+  box.innerHTML =
+    `<b>${csvRows.length.toLocaleString()} NFTs → ${tickets.length.toLocaleString()} tickets</b> after the per-wallet cap` +
+    (capped.length
+      ? `<br>Capped wallets (${capped.length}): ` +
+        capped.map(c => `${escapeHtml(c.wallet.slice(0,6))}…${escapeHtml(c.wallet.slice(-4))} ${c.held}→${maxTickets}`).join(' · ')
+      : '<br>No wallet exceeds the cap.');
+  box.style.display = 'block';
+}
+
+// ── Rule 1: ticket cap per wallet ────────────────────────────────────────────
+// Keeps the first `maxTickets` NFTs of each wallet in CSV order.
+// MUST stay identical to applyTicketCap() in verify-draw.js.
+function applyTicketCap(entries, maxTickets) {
+  const held = {}, tickets = [];
+  for (const e of entries) {
+    const w = e.wallet.toLowerCase();
+    held[w] = (held[w] || 0) + 1;
+    if (held[w] <= maxTickets) tickets.push(e);
+  }
+  const capped = Object.entries(held)
+    .filter(([, n]) => n > maxTickets)
+    .map(([wallet, n]) => ({ wallet, held: n }))
+    .sort((a, b) => b.held - a.held);
+  return { tickets, capped };
+}
+
+// ── Rule 2: Fisher-Yates + keccak256 with a win cap per wallet ───────────────
+// Same steps as the original draw; a ticket whose wallet already has
+// `maxWins` prizes is skipped and the shuffle simply continues.
+// If no wallet hits the cap, the result equals the original algorithm.
+// MUST stay identical to pickWinners() in verify-draw.js.
+function pickWinners(blockHash, pool, num, maxWins) {
   const arr = [...pool];
   const n   = arr.length;
-  for (let i = 0; i < num; i++) {
+  const wins = {}, winners = [];
+  for (let i = 0; i < n && winners.length < num; i++) {
     const encoded = ethers.solidityPacked(['bytes32','uint256'], [blockHash, i]);
     const rand    = BigInt(ethers.keccak256(encoded));
     const j       = Number(rand % BigInt(n - i)) + i;
     [arr[i], arr[j]] = [arr[j], arr[i]];
+    const w = arr[i].wallet.toLowerCase();
+    if ((wins[w] || 0) >= maxWins) continue;
+    wins[w] = (wins[w] || 0) + 1;
+    winners.push(arr[i]);
   }
-  return arr.slice(0, num);
+  return winners;
 }
 
 // ── Run draw ─────────────────────────────────────────────────────────────────
@@ -768,22 +839,30 @@ async function runDraw() {
   const blockHash  = document.getElementById('blockHash').value.trim();
   const blockNum   = document.getElementById('blockNumber').value.trim();
   const numWinners = parseInt(document.getElementById('numWinners').value) || 5;
+  const { maxTickets, maxWins } = getCaps();
 
   if (!blockHash.match(/^0x[0-9a-fA-F]{64}$/))
     return showError('Block Hash must start with 0x and be exactly 64 hex characters.');
   if (!csvRows.length)
     return showError('Please upload a CSV file first.');
-  if (csvRows.length < numWinners)
-    return showError(`Need at least ${numWinners} entries. CSV only has ${csvRows.length}.`);
+  if (!(maxTickets >= 1) || !(maxWins >= 1))
+    return showError('Max tickets and max wins per wallet must be at least 1.');
+
+  const { tickets } = applyTicketCap(csvRows, maxTickets);
+  if (tickets.length < numWinners)
+    return showError(`Need at least ${numWinners} tickets. Only ${tickets.length} after the per-wallet cap.`);
 
   const btn = document.getElementById('btnDraw');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Drawing winners...';
 
   try {
-    const winners = await pickWinners(blockHash, csvRows, numWinners);
+    const winners = pickWinners(blockHash, tickets, numWinners, maxWins);
     lastWinners   = winners;
-    renderResults(winners, blockHash, blockNum, numWinners);
+    renderResults(winners, blockHash, blockNum, numWinners,
+                  { tickets: tickets.length, maxTickets, maxWins });
+    if (winners.length < numWinners)
+      showError(`Only ${winners.length} of ${numWinners} prizes could be awarded: not enough wallets under the ${maxWins}-win cap.`);
   } catch(e) { showError('Error: ' + e.message); }
 
   btn.disabled = false;
@@ -791,17 +870,21 @@ async function runDraw() {
 }
 
 // ── Render results ────────────────────────────────────────────────────────────
-function renderResults(winners, blockHash, blockNum, num) {
+function renderResults(winners, blockHash, blockNum, num, rules) {
   const medals = ['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
+  const n = winners.length;
 
   document.getElementById('resultsSub').textContent =
-    `${num} winner${num>1?'s':''} · Block #${blockNum||'?'} · ${csvRows.length.toLocaleString()} total entries`;
+    `${n} winner${n>1?'s':''} · Block #${blockNum||'?'} · ${rules.tickets.toLocaleString()} tickets`;
 
   document.getElementById('seedCard').innerHTML =
     `<div class="seed-row"><span class="seed-key">Block Number</span><span class="seed-val">#${escapeHtml(blockNum||'—')}</span></div>
      <div class="seed-row"><span class="seed-key">Block Hash</span><span class="seed-val">${escapeHtml(blockHash)}</span></div>
-     <div class="seed-row"><span class="seed-key">Total Entries</span><span class="seed-val">${csvRows.length.toLocaleString()} NFT IDs</span></div>
-     <div class="seed-row"><span class="seed-key">Winners</span><span class="seed-val">${num}</span></div>`;
+     <div class="seed-row"><span class="seed-key">Total NFTs in CSV</span><span class="seed-val">${csvRows.length.toLocaleString()} NFT IDs</span></div>
+     <div class="seed-row"><span class="seed-key">Tickets (after cap)</span><span class="seed-val">${rules.tickets.toLocaleString()}</span></div>
+     <div class="seed-row"><span class="seed-key">Max Tickets / Wallet</span><span class="seed-val">${rules.maxTickets}</span></div>
+     <div class="seed-row"><span class="seed-key">Max Wins / Wallet</span><span class="seed-val">${rules.maxWins}</span></div>
+     <div class="seed-row"><span class="seed-key">Winners</span><span class="seed-val">${n}${n<num?` of ${num}`:''}</span></div>`;
 
   document.getElementById('winnersList').innerHTML = winners.map((row, i) => `
     <div class="winner-card">

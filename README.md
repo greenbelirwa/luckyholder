@@ -27,11 +27,21 @@ hash, index)`, so it is fully deterministic: the same block hash + same CSV
 always produces the same winners, and anyone can verify it with
 `verify-draw.js` or by reading the algorithm shown on the draw page.
 
-Because the pool is indexed by **NFT ID, not by unique wallet**, a wallet
-holding multiple NFT Trees has multiple entries in the pool and therefore a
-proportionally higher chance of being drawn — including winning more than
-once in the same draw. This is intentional: each NFT has an equal,
-independent chance of being selected regardless of which wallet holds it.
+Each NFT Tree is one ticket, so a wallet holding more Trees has a higher
+chance of being drawn. Two per-wallet limits keep the draw open to more
+holders:
+
+1. **Max tickets per wallet (default 50).** Only the first 50 NFTs of each
+   wallet, in CSV order, become tickets; the rest are left out of the pool.
+   Wallets are compared case-insensitively.
+2. **Max wins per wallet (default 3).** The shuffle runs exactly as before
+   (same seed, same index `i`). When the ticket at position `i` belongs to a
+   wallet that already has 3 prizes, it is skipped and the shuffle simply
+   continues with `i + 1` until all prizes are awarded or the pool runs out.
+
+If no wallet reaches either limit, the result is identical to the original
+algorithm. Both limits are shown on the draw page and asked for by
+`verify-draw.js`, so the announcement must state the values used.
 
 For fairness, the block hash should be chosen **after** publishing the
 participant list and its SHA-256 hash, and ideally the block number should be
@@ -45,5 +55,6 @@ after the fact.
    data into a spreadsheet, to avoid Google Sheets silently reformatting
    numbers.
 3. Run `npm install && node verify-draw.js` in this folder and enter the
-   announced block hash, block number, and number of winners.
+   announced block hash, block number, number of winners, max tickets per
+   wallet and max wins per wallet (press Enter for the defaults 50 and 3).
 4. Compare the output to the officially announced winners.
